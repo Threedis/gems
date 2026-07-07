@@ -1,0 +1,2378 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GSE Operations KPI Dashboard</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css"
+      onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css';">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css"
+      onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css';">
+
+<script>
+/* Multi-source library loader — tries each URL in order until one actually
+   loads. Guards against any single CDN path being wrong, renamed, or blocked
+   (ad-blockers commonly block "chart" or "analytics"-adjacent filenames). */
+function loadScriptCascade(urls){
+  return new Promise((resolve,reject)=>{
+    let i=0;
+    (function tryNext(){
+      if(i>=urls.length){ reject(new Error('All sources failed: '+urls[0])); return; }
+      const s = document.createElement('script');
+      s.src = urls[i++];
+      s.onload = resolve;
+      s.onerror = function(){ s.remove(); tryNext(); };
+      document.head.appendChild(s);
+    })();
+  });
+}
+window.__libsReady = Promise.all([
+  loadScriptCascade([
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'
+  ]),
+  loadScriptCascade([
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/chart.js/4.4.4/chart.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js'
+  ]),
+  loadScriptCascade([
+    'https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js',
+    'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js',
+    'https://unpkg.com/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
+  ])
+]).catch(function(e){ console.error('Library load failure:', e); window.__libsFailed = true; });
+</script>
+
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   Signature: "instrument tape" KPI tiles + radar-sweep sidebar
+   mark + runway centre-line dividers. Navy/grey aviation
+   palette per brief, executed with restraint.
+   ============================================================ */
+:root{
+  --navy-950:#080f1e;
+  --navy-900:#0c1a30;
+  --navy-850:#102240;
+  --navy-800:#16304f;
+  --navy-700:#1c3e63;
+  --steel-600:#4a5a70;
+  --steel-400:#7c8ba0;
+  --steel-200:#c7cfd8;
+  --ice-50:#f3f6fa;
+  --ice-100:#e8edf3;
+  --white:#ffffff;
+  --signal-blue:#2e8ff0;
+  --signal-blue-dim:#1c5fa8;
+  --runway-green:#17a673;
+  --runway-green-dim:#0f7a56;
+  --amber-warn:#f2a93b;
+  --alert-red:#e4483f;
+
+  --font-display:'Space Grotesk', 'Segoe UI', sans-serif;
+  --font-body:'Inter', 'Segoe UI', sans-serif;
+  --font-mono:'JetBrains Mono', 'Consolas', monospace;
+
+  --sidebar-w:250px;
+  --topbar-h:64px;
+  --radius:10px;
+  --transition:180ms ease;
+}
+
+html[data-theme="dark"]{
+  --bg-app:var(--navy-950);
+  --bg-surface:var(--navy-850);
+  --bg-surface-2:var(--navy-800);
+  --bg-elevated:#132845;
+  --border-soft:rgba(124,139,160,0.18);
+  --border-strong:rgba(124,139,160,0.32);
+  --text-primary:#eef2f7;
+  --text-secondary:#a9b6c9;
+  --text-muted:#71809652;
+  --text-muted:#7c8ba0;
+  --sidebar-bg:var(--navy-950);
+  --topbar-bg:rgba(12,26,48,0.92);
+  --card-shadow:0 1px 2px rgba(0,0,0,0.4), 0 8px 24px -12px rgba(0,0,0,0.5);
+  --chart-grid:rgba(124,139,160,0.14);
+  --scrollbar-thumb:#2a4260;
+}
+html[data-theme="light"]{
+  --bg-app:var(--ice-50);
+  --bg-surface:var(--white);
+  --bg-surface-2:var(--ice-100);
+  --bg-elevated:var(--white);
+  --border-soft:rgba(20,40,70,0.09);
+  --border-strong:rgba(20,40,70,0.16);
+  --text-primary:#101e30;
+  --text-secondary:#465268;
+  --text-muted:#7c8ba0;
+  --sidebar-bg:var(--navy-950);
+  --topbar-bg:rgba(255,255,255,0.92);
+  --card-shadow:0 1px 2px rgba(20,40,70,0.06), 0 8px 20px -14px rgba(20,40,70,0.25);
+  --chart-grid:rgba(20,40,70,0.08);
+  --scrollbar-thumb:#c7cfd8;
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  background:var(--bg-app);
+  color:var(--text-primary);
+  font-family:var(--font-body);
+  font-size:14px;
+  -webkit-font-smoothing:antialiased;
+  transition:background var(--transition), color var(--transition);
+}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+h1,h2,h3,h4,h5,.font-display{font-family:var(--font-display);letter-spacing:-0.01em;}
+.font-mono{font-family:var(--font-mono);}
+a{color:var(--signal-blue);}
+
+/* ---------- Layout shell ---------- */
+.app-shell{display:flex;min-height:100vh;}
+
+.sidebar{
+  width:var(--sidebar-w);
+  flex-shrink:0;
+  background:var(--sidebar-bg);
+  border-right:1px solid rgba(124,139,160,0.14);
+  position:fixed;top:0;bottom:0;left:0;
+  display:flex;flex-direction:column;
+  z-index:40;
+  transition:transform var(--transition);
+}
+.sidebar-brand{
+  height:var(--topbar-h);
+  display:flex;align-items:center;gap:.65rem;
+  padding:0 1.15rem;
+  border-bottom:1px solid rgba(124,139,160,0.14);
+  position:relative;overflow:hidden;flex-shrink:0;
+}
+.brand-mark{
+  width:34px;height:34px;border-radius:9px;position:relative;flex-shrink:0;
+  background:conic-gradient(from 220deg, var(--signal-blue) 0deg, transparent 70deg, transparent 360deg),
+             radial-gradient(circle at 30% 30%, var(--navy-700), var(--navy-950) 75%);
+  border:1px solid rgba(124,139,160,0.3);
+  animation:sweep 7s linear infinite;
+}
+@media (prefers-reduced-motion:reduce){.brand-mark{animation:none;}}
+@keyframes sweep{ to { background:conic-gradient(from 580deg, var(--signal-blue) 0deg, transparent 70deg, transparent 360deg),
+             radial-gradient(circle at 30% 30%, var(--navy-700), var(--navy-950) 75%); } }
+.brand-mark::after{
+  content:'';position:absolute;inset:9px;border-radius:50%;
+  border:1.5px solid rgba(46,143,240,0.55);
+}
+.brand-text{line-height:1.15;}
+.brand-text .t1{font-family:var(--font-display);font-weight:700;font-size:.92rem;color:#eef2f7;}
+.brand-text .t2{font-size:.66rem;letter-spacing:.09em;text-transform:uppercase;color:var(--steel-400);}
+
+.sidebar-nav{flex:1;overflow-y:auto;padding:.9rem .65rem;}
+.nav-group-label{
+  font-size:.66rem;letter-spacing:.11em;text-transform:uppercase;color:var(--steel-400);
+  padding:1rem .65rem .4rem;font-weight:600;
+}
+.nav-group-label:first-child{padding-top:.3rem;}
+.nav-item{
+  display:flex;align-items:center;gap:.65rem;
+  padding:.55rem .65rem;margin:.05rem 0;border-radius:8px;
+  color:#c3cbdb;text-decoration:none;font-size:.84rem;font-weight:500;
+  cursor:pointer;transition:background var(--transition), color var(--transition);
+  border-left:2px solid transparent;
+}
+.nav-item i{font-size:1rem;width:18px;text-align:center;color:var(--steel-400);}
+.nav-item:hover{background:rgba(124,139,160,0.1);color:#fff;}
+.nav-item.active{background:rgba(46,143,240,0.14);color:#fff;border-left-color:var(--signal-blue);}
+.nav-item.active i{color:var(--signal-blue);}
+.nav-item .nav-badge{
+  margin-left:auto;font-family:var(--font-mono);font-size:.66rem;
+  background:rgba(124,139,160,0.16);color:var(--steel-200);
+  padding:.05rem .4rem;border-radius:5px;
+}
+.sidebar-foot{
+  padding:.8rem 1rem;border-top:1px solid rgba(124,139,160,0.14);
+  font-size:.68rem;color:var(--steel-400);flex-shrink:0;
+}
+
+.main-col{margin-left:var(--sidebar-w);flex:1;min-width:0;display:flex;flex-direction:column;}
+
+.topbar{
+  height:var(--topbar-h);position:sticky;top:0;z-index:30;
+  background:var(--topbar-bg);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border-soft);
+  display:flex;align-items:center;gap:.85rem;padding:0 1.25rem;
+}
+.topbar .section-title{font-family:var(--font-display);font-weight:600;font-size:1.05rem;}
+.topbar .section-sub{font-size:.72rem;color:var(--text-muted);margin-top:1px;}
+.sidebar-toggle-btn{display:none;}
+
+.file-chip{
+  display:flex;align-items:center;gap:.5rem;
+  background:var(--bg-surface-2);border:1px solid var(--border-soft);
+  padding:.35rem .7rem;border-radius:8px;font-size:.76rem;color:var(--text-secondary);
+  max-width:280px;
+}
+.file-chip i{color:var(--runway-green);}
+.file-chip .fname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;color:var(--text-primary);font-weight:500;}
+
+.icon-btn{
+  width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  background:var(--bg-surface-2);border:1px solid var(--border-soft);color:var(--text-secondary);
+  cursor:pointer;transition:all var(--transition);font-size:1rem;
+}
+.icon-btn:hover{color:var(--text-primary);border-color:var(--border-strong);}
+
+.btn-runway{
+  background:var(--signal-blue);border:1px solid var(--signal-blue);color:#fff;
+  font-weight:600;font-size:.82rem;border-radius:8px;padding:.5rem 1rem;
+  display:inline-flex;align-items:center;gap:.45rem;transition:all var(--transition);
+}
+.btn-runway:hover{background:var(--signal-blue-dim);border-color:var(--signal-blue-dim);color:#fff;}
+.btn-ghost-line{
+  background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);
+  font-weight:500;font-size:.8rem;border-radius:8px;padding:.45rem .85rem;
+  display:inline-flex;align-items:center;gap:.4rem;
+}
+.btn-ghost-line:hover{color:var(--text-primary);border-color:var(--signal-blue);}
+
+.main-content{padding:1.4rem 1.6rem 3rem;flex:1;}
+.view{display:none;animation:fadein .25s ease;}
+.view.active{display:block;}
+@keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+/* runway centre-line divider */
+.runway-divider{
+  display:flex;align-items:center;gap:.6rem;margin:1.9rem 0 1.1rem;
+}
+.runway-divider .rd-label{
+  font-family:var(--font-display);font-weight:600;font-size:.95rem;color:var(--text-primary);
+  display:flex;align-items:center;gap:.5rem;white-space:nowrap;
+}
+.runway-divider .rd-label i{color:var(--signal-blue);}
+.runway-divider .rd-line{
+  flex:1;height:0;border-top:2px dashed var(--border-strong);opacity:.7;
+}
+.runway-divider:first-child{margin-top:0;}
+
+/* ---------- Cards ---------- */
+.panel{
+  background:var(--bg-surface);border:1px solid var(--border-soft);border-radius:var(--radius);
+  box-shadow:var(--card-shadow);
+}
+.panel-head{
+  padding:.95rem 1.1rem;border-bottom:1px solid var(--border-soft);
+  display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+}
+.panel-head h6{margin:0;font-family:var(--font-display);font-weight:600;font-size:.86rem;letter-spacing:.01em;}
+.panel-head .ph-sub{font-size:.7rem;color:var(--text-muted);margin-top:1px;}
+.panel-body{padding:1.1rem;}
+.panel-body.p-0{padding:0;}
+
+/* KPI instrument tile */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(190px,1fr));gap:.85rem;}
+.kpi-tile{
+  position:relative;background:var(--bg-surface);border:1px solid var(--border-soft);
+  border-radius:var(--radius);padding:.95rem 1rem 1rem;overflow:hidden;
+  box-shadow:var(--card-shadow);
+}
+.kpi-tile::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:var(--tile-color, var(--signal-blue));
+}
+.kpi-tile .kt-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:.55rem;}
+.kpi-tile .kt-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:600;}
+.kpi-tile .kt-icon{
+  width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+  background:color-mix(in srgb, var(--tile-color, var(--signal-blue)) 16%, transparent);
+  color:var(--tile-color, var(--signal-blue));font-size:.78rem;flex-shrink:0;
+}
+.kpi-tile .kt-value{font-family:var(--font-mono);font-weight:700;font-size:1.55rem;line-height:1;color:var(--text-primary);
+  font-variant-numeric:tabular-nums;}
+.kpi-tile .kt-value .unit{font-size:.85rem;font-weight:600;color:var(--text-muted);margin-left:2px;}
+.kpi-tile .kt-foot{display:flex;align-items:center;gap:.35rem;margin-top:.5rem;font-size:.72rem;color:var(--text-muted);}
+.kpi-tile .kt-trend{display:flex;align-items:center;gap:.2rem;font-weight:600;font-family:var(--font-mono);font-size:.72rem;}
+.kpi-tile .kt-trend.up{color:var(--runway-green);}
+.kpi-tile .kt-trend.down{color:var(--alert-red);}
+
+.status-dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.status-dot.ok{background:var(--runway-green);box-shadow:0 0 0 3px rgba(23,166,115,0.18);}
+.status-dot.warn{background:var(--amber-warn);box-shadow:0 0 0 3px rgba(242,169,59,0.18);}
+.status-dot.crit{background:var(--alert-red);box-shadow:0 0 0 3px rgba(228,72,63,0.18);}
+
+.badge-soft{
+  font-size:.68rem;font-weight:600;padding:.2rem .55rem;border-radius:6px;
+  display:inline-flex;align-items:center;gap:.3rem;
+}
+.badge-soft.ok{background:rgba(23,166,115,0.14);color:var(--runway-green);}
+.badge-soft.warn{background:rgba(242,169,59,0.14);color:var(--amber-warn);}
+.badge-soft.crit{background:rgba(228,72,63,0.14);color:var(--alert-red);}
+.badge-soft.info{background:rgba(46,143,240,0.14);color:var(--signal-blue);}
+.badge-soft.neu{background:var(--bg-surface-2);color:var(--text-secondary);}
+
+.chart-box{position:relative;width:100%;}
+.chart-box canvas{max-width:100%;}
+
+/* Chart grid layouts */
+.row-charts{display:grid;gap:1rem;}
+.row-charts.cols-2{grid-template-columns:1fr 1fr;}
+.row-charts.cols-3{grid-template-columns:1fr 1fr 1fr;}
+.row-charts.cols-2-1{grid-template-columns:1.4fr 1fr;}
+@media (max-width:1100px){
+  .row-charts.cols-2,.row-charts.cols-3,.row-charts.cols-2-1{grid-template-columns:1fr;}
+}
+
+/* ---------- Upload zone ---------- */
+.dropzone{
+  border:2px dashed var(--border-strong);border-radius:14px;
+  padding:2.8rem 2rem;text-align:center;background:var(--bg-surface);
+  cursor:pointer;transition:all var(--transition);
+}
+.dropzone:hover, .dropzone.dragover{border-color:var(--signal-blue);background:color-mix(in srgb, var(--signal-blue) 6%, var(--bg-surface));}
+.dropzone .dz-icon{
+  width:64px;height:64px;border-radius:16px;margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;
+  background:rgba(46,143,240,0.12);color:var(--signal-blue);font-size:1.8rem;
+}
+.empty-state{max-width:640px;margin:3rem auto;text-align:center;}
+.empty-state h4{font-family:var(--font-display);}
+.sheet-check-list{text-align:left;display:inline-grid;grid-template-columns:1fr 1fr;gap:.35rem 1.6rem;margin-top:1rem;font-size:.78rem;color:var(--text-secondary);}
+.sheet-check-list li{list-style:none;display:flex;align-items:center;gap:.4rem;}
+.sheet-check-list i{color:var(--steel-400);font-size:.75rem;}
+
+/* ---------- Table component ---------- */
+.dtable-wrap{padding:1rem 1.1rem;}
+.dtable-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin-bottom:.75rem;}
+.dtable-toolbar .search-input{
+  background:var(--bg-surface-2);border:1px solid var(--border-soft);color:var(--text-primary);
+  border-radius:8px;padding:.4rem .7rem .4rem 2rem;font-size:.8rem;width:220px;
+}
+.search-wrap{position:relative;}
+.search-wrap i{position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:.8rem;}
+.dtable-toolbar select{
+  background:var(--bg-surface-2);border:1px solid var(--border-soft);color:var(--text-primary);
+  border-radius:8px;padding:.4rem .6rem;font-size:.78rem;
+}
+table.simple-table{width:100%;border-collapse:collapse;font-size:.78rem;}
+table.simple-table thead th{
+  position:sticky;top:0;background:var(--bg-surface-2);
+  text-align:left;padding:.55rem .7rem;font-weight:600;color:var(--text-secondary);
+  border-bottom:1px solid var(--border-strong);white-space:nowrap;cursor:pointer;user-select:none;
+}
+table.simple-table thead th:hover{color:var(--text-primary);}
+table.simple-table thead th i{margin-left:.3rem;font-size:.68rem;color:var(--text-muted);}
+table.simple-table tbody td{padding:.5rem .7rem;border-bottom:1px solid var(--border-soft);color:var(--text-secondary);
+  max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+table.simple-table tbody tr:hover td{background:var(--bg-surface-2);color:var(--text-primary);}
+.table-scroll{overflow:auto;max-height:520px;border:1px solid var(--border-soft);border-radius:8px;}
+.dtable-foot{display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;font-size:.75rem;color:var(--text-muted);flex-wrap:wrap;gap:.5rem;}
+.pager-btn{
+  background:var(--bg-surface-2);border:1px solid var(--border-soft);color:var(--text-secondary);
+  border-radius:6px;padding:.25rem .6rem;font-size:.75rem;cursor:pointer;
+}
+.pager-btn:disabled{opacity:.4;cursor:not-allowed;}
+.pager-btn.active{background:var(--signal-blue);color:#fff;border-color:var(--signal-blue);}
+
+.scorecard{
+  display:flex;align-items:center;gap:.85rem;padding:.8rem;border:1px solid var(--border-soft);border-radius:10px;
+  background:var(--bg-surface-2);
+}
+.scorecard .rank{
+  width:34px;height:34px;border-radius:9px;background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-weight:700;color:var(--signal-blue);flex-shrink:0;border:1px solid var(--border-soft);
+}
+.scorecard .name{font-weight:600;font-size:.85rem;}
+.scorecard .sub{font-size:.72rem;color:var(--text-muted);}
+.scorecard .metric{margin-left:auto;text-align:right;}
+.scorecard .metric .v{font-family:var(--font-mono);font-weight:700;font-size:1.05rem;}
+.scorecard .metric .l{font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;}
+
+.progress-track{height:6px;border-radius:4px;background:var(--bg-surface-2);overflow:hidden;}
+.progress-fill{height:100%;border-radius:4px;}
+
+.heat-cell{width:100%;height:20px;border-radius:3px;}
+
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:.9rem 0;border-bottom:1px solid var(--border-soft);gap:1rem;}
+.settings-row:last-child{border-bottom:none;}
+.settings-row .sr-label{font-weight:600;font-size:.85rem;}
+.settings-row .sr-sub{font-size:.74rem;color:var(--text-muted);margin-top:.15rem;max-width:520px;}
+
+.form-control-dark, select.form-control-dark{
+  background:var(--bg-surface-2);border:1px solid var(--border-soft);color:var(--text-primary);
+  border-radius:8px;padding:.4rem .65rem;font-size:.82rem;
+}
+.form-control-dark:focus{outline:none;border-color:var(--signal-blue);}
+
+.legend-dot{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:.4rem;}
+
+.toast-stack{position:fixed;bottom:1.2rem;right:1.2rem;z-index:1000;display:flex;flex-direction:column;gap:.5rem;}
+.toast-item{
+  background:var(--bg-elevated);border:1px solid var(--border-strong);color:var(--text-primary);
+  padding:.7rem 1rem;border-radius:9px;font-size:.82rem;box-shadow:var(--card-shadow);
+  display:flex;align-items:center;gap:.6rem;min-width:260px;animation:slidein .2s ease;
+}
+@keyframes slidein{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
+
+@media (max-width:960px){
+  .sidebar{transform:translateX(-100%);}
+  .sidebar.open{transform:translateX(0);}
+  .main-col{margin-left:0;}
+  .sidebar-toggle-btn{display:flex;}
+}
+.text-muted-2{color:var(--text-muted);}
+.mono{font-family:var(--font-mono);}
+hr.soft{border-color:var(--border-soft);}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <div class="t1">GSE OPS</div>
+        <div class="t2">KPI Dashboard</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="sidebarNav">
+      <div class="nav-group-label">Overview</div>
+      <div class="nav-item active" data-view="view-executive"><i class="bi bi-speedometer2"></i>Executive Summary</div>
+
+      <div class="nav-group-label">Ground Equipment</div>
+      <div class="nav-item" data-view="view-gpu"><i class="bi bi-lightning-charge"></i>GPU Monitoring</div>
+      <div class="nav-item" data-view="view-pca"><i class="bi bi-snow"></i>PCA Monitoring</div>
+      <div class="nav-item" data-view="view-pbb"><i class="bi bi-diagram-3"></i>PBB Monitoring</div>
+
+      <div class="nav-group-label">Service Quality</div>
+      <div class="nav-item" data-view="view-complaints"><i class="bi bi-chat-square-text"></i>Complaint Analytics</div>
+      <div class="nav-item" data-view="view-breakdowns"><i class="bi bi-tools"></i>Breakdown Dashboard</div>
+
+      <div class="nav-group-label">Utilisation</div>
+      <div class="nav-item" data-view="view-usage"><i class="bi bi-pie-chart"></i>Usage Analysis</div>
+      <div class="nav-item" data-view="view-operators"><i class="bi bi-person-badge"></i>Operator Performance</div>
+
+      <div class="nav-group-label">Assets &amp; Improvement</div>
+      <div class="nav-item" data-view="view-inventory"><i class="bi bi-box-seam"></i>Inventory Dashboard</div>
+      <div class="nav-item" data-view="view-kaizen"><i class="bi bi-lightbulb"></i>Kaizen Tracker</div>
+
+      <div class="nav-group-label">Data</div>
+      <div class="nav-item" data-view="view-explorer"><i class="bi bi-table"></i>Data Explorer</div>
+      <div class="nav-item" data-view="view-settings"><i class="bi bi-sliders"></i>KPI Formula Settings</div>
+    </nav>
+    <div class="sidebar-foot">
+      Airport GSE Ops &middot; Client-side analysis<br>No data leaves this browser.
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main-col">
+    <header class="topbar">
+      <button class="icon-btn sidebar-toggle-btn" id="sidebarToggle"><i class="bi bi-list"></i></button>
+      <div>
+        <div class="section-title" id="topbarTitle">Executive Summary</div>
+        <div class="section-sub" id="topbarSub">Upload a monthly KPI workbook to populate this dashboard</div>
+      </div>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <div class="file-chip" id="fileChip" style="display:none;">
+          <i class="bi bi-file-earmark-spreadsheet"></i>
+          <div>
+            <div class="fname" id="fileChipName">—</div>
+          </div>
+        </div>
+        <button class="btn-ghost-line" id="btnUploadTop"><i class="bi bi-upload"></i><span class="d-none d-md-inline">Upload workbook</span></button>
+        <button class="icon-btn" id="themeToggle" title="Toggle theme"><i class="bi bi-sun"></i></button>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none;">
+    </header>
+
+    <main class="main-content" id="mainContent">
+
+      <!-- ============ EMPTY STATE (shown until a file is loaded) ============ -->
+      <div id="emptyStateWrap">
+        <div class="empty-state">
+          <div class="dz-icon" style="width:64px;height:64px;border-radius:16px;margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;background:rgba(46,143,240,0.12);color:var(--signal-blue);font-size:1.8rem;">
+            <i class="bi bi-cloud-arrow-up"></i>
+          </div>
+          <h4>Load this month's GSE KPI workbook</h4>
+          <p class="text-muted-2">Drop the monthly Excel export below. Sheets are detected automatically &mdash; GPU/PCA/PBB uptime &amp; serviceability, complaints, breakdowns, usage, operator performance, inventory and Kaizen logs.</p>
+        </div>
+        <div class="dropzone" id="dropzone" style="max-width:640px;margin:0 auto;">
+          <div class="dz-icon"><i class="bi bi-file-earmark-arrow-up"></i></div>
+          <div style="font-weight:600;margin-bottom:.25rem;">Drag &amp; drop your .xlsx file here</div>
+          <div class="text-muted-2" style="font-size:.8rem;">or click to browse &middot; .xlsx / .xls supported</div>
+        </div>
+        <div style="max-width:640px;margin:1.4rem auto 0;">
+          <ul class="sheet-check-list">
+            <li><i class="bi bi-circle"></i> GPU Uptime / SR&#8209;AV</li>
+            <li><i class="bi bi-circle"></i> PCA Uptime / SR&#8209;AV</li>
+            <li><i class="bi bi-circle"></i> PBB SR&#8209;AV</li>
+            <li><i class="bi bi-circle"></i> Airline Complaints</li>
+            <li><i class="bi bi-circle"></i> Major Complaint / Breakdown</li>
+            <li><i class="bi bi-circle"></i> PBB Complaints / Breakdown</li>
+            <li><i class="bi bi-circle"></i> Removed Item Inventory</li>
+            <li><i class="bi bi-circle"></i> Usage Summary</li>
+            <li><i class="bi bi-circle"></i> Kaizen / Improvement Log</li>
+            <li><i class="bi bi-circle"></i> Operator Performance</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ============ DASHBOARD VIEWS (hidden until data loaded) ============ -->
+      <div id="dashboardWrap" style="display:none;">
+
+        <div class="view active" id="view-executive"></div>
+        <div class="view" id="view-gpu"></div>
+        <div class="view" id="view-pca"></div>
+        <div class="view" id="view-pbb"></div>
+        <div class="view" id="view-complaints"></div>
+        <div class="view" id="view-breakdowns"></div>
+        <div class="view" id="view-usage"></div>
+        <div class="view" id="view-operators"></div>
+        <div class="view" id="view-inventory"></div>
+        <div class="view" id="view-kaizen"></div>
+        <div class="view" id="view-explorer"></div>
+        <div class="view" id="view-settings"></div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+/* =====================================================================
+   GSE OPERATIONS KPI DASHBOARD — application script
+   Single-file, client-side only. No data ever leaves the browser.
+   ===================================================================== */
+(function(){
+"use strict";
+
+/* ---------------------------------------------------------------------
+   SECTION 0 — Global state & small utilities
+--------------------------------------------------------------------- */
+const APP = {
+  workbookName:null,
+  uploadedAt:null,
+  sheets:{},          // raw sheet name -> array-of-arrays
+  data:{},            // parsed/normalized structures, keyed by logical id
+  charts:{},          // canvasId -> Chart instance, so we can destroy on re-render
+  theme:'dark',
+  settings:{
+    downtimeUnitMajor:'hours',   // 'hours' | 'minutes' — see parseMajorDowntime()
+    pmRatioWhenMissing:0,        // fraction of unexplained downtime treated as PM when no PM/BD split exists
+    lowAvailabilityThreshold:0.97,
+    warnAvailabilityThreshold:0.99
+  }
+};
+
+function $(sel,root){ return (root||document).querySelector(sel); }
+function $all(sel,root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
+function el(tag, cls, html){ const e=document.createElement(tag); if(cls) e.className=cls; if(html!==undefined) e.innerHTML=html; return e; }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+function fmtNum(n, decimals){
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  decimals = decimals===undefined?0:decimals;
+  return Number(n).toLocaleString('en-US',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+function fmtPct(fraction, decimals){
+  if(fraction===null||fraction===undefined||isNaN(fraction)) return '—';
+  decimals = decimals===undefined?1:decimals;
+  return (fraction*100).toFixed(decimals)+'%';
+}
+function fmtHours(minutes, decimals){
+  if(minutes===null||minutes===undefined||isNaN(minutes)) return '—';
+  decimals = decimals===undefined?1:decimals;
+  return fmtNum(minutes/60, decimals);
+}
+function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+
+function statusForRatio(ratio, higherIsBetter){
+  higherIsBetter = higherIsBetter===undefined?true:higherIsBetter;
+  if(ratio===null||ratio===undefined||isNaN(ratio)) return 'neu';
+  const okT = APP.settings.warnAvailabilityThreshold;
+  const warnT = APP.settings.lowAvailabilityThreshold;
+  if(higherIsBetter){
+    if(ratio>=okT) return 'ok';
+    if(ratio>=warnT) return 'warn';
+    return 'crit';
+  } else {
+    if(ratio<=1-okT) return 'ok';
+    if(ratio<=1-warnT) return 'warn';
+    return 'crit';
+  }
+}
+
+function showToast(msg, type){
+  type = type||'info';
+  const icon = {info:'bi-info-circle',ok:'bi-check-circle',warn:'bi-exclamation-triangle',crit:'bi-x-circle'}[type]||'bi-info-circle';
+  const color = {info:'var(--signal-blue)',ok:'var(--runway-green)',warn:'var(--amber-warn)',crit:'var(--alert-red)'}[type];
+  const t = el('div','toast-item');
+  t.innerHTML = '<i class="bi '+icon+'" style="color:'+color+'"></i><div>'+escapeHtml(msg)+'</div>';
+  $('#toastStack').appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3800);
+}
+
+// Excel serial date -> JS Date (SheetJS already gives JS Dates when cellDates:true, this is a fallback)
+function excelSerialToDate(v){
+  if(v instanceof Date) return v;
+  if(typeof v==='number'){
+    const utcDays = Math.floor(v - 25569);
+    const utcVal = utcDays*86400;
+    return new Date(utcVal*1000);
+  }
+  return null;
+}
+function toDateLoose(v){
+  if(v===null||v===undefined||v==='') return null;
+  if(v instanceof Date && !isNaN(v)) return v;
+  if(typeof v==='number') return excelSerialToDate(v);
+  if(typeof v==='string'){
+    let m = v.trim().match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{2,4})/);
+    if(m){
+      let d=+m[1], mo=+m[2], y=+m[3]; if(y<100) y+=2000;
+      const dt = new Date(y, mo-1, d);
+      if(!isNaN(dt)) return dt;
+    }
+    const dt2 = new Date(v);
+    if(!isNaN(dt2)) return dt2;
+  }
+  return null;
+}
+function fmtDate(d){
+  if(!d) return '—';
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+}
+function fmtDateFull(d){
+  if(!d) return '—';
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+}
+// time value from SheetJS: Date object with 1899-12-30 base, or fraction of day number, or "HH:MM" string
+function timeToMinutes(v){
+  if(v===null||v===undefined||v==='') return null;
+  if(v instanceof Date && !isNaN(v)) return v.getHours()*60+v.getMinutes()+v.getSeconds()/60;
+  if(typeof v==='number') return (v%1)*24*60; // fraction of a day
+  if(typeof v==='string'){
+    const m = v.trim().match(/^(\d{1,2}):(\d{2})/);
+    if(m) return (+m[1])*60+(+m[2]);
+  }
+  return null;
+}
+function minutesBetween(startMin, endMin){
+  if(startMin===null||endMin===null) return null;
+  let d = endMin-startMin;
+  if(d<0) d += 24*60; // wrapped past midnight
+  return d;
+}
+// parse free-text duration like "7Hrs", "30 Mins", "1Hrs 22Mins", or a bare number (assumed minutes)
+function parseDurationToMinutes(v, assumeUnitIfBareNumber){
+  assumeUnitIfBareNumber = assumeUnitIfBareNumber || 'minutes';
+  if(v===null||v===undefined||v==='') return null;
+  if(typeof v==='number') return assumeUnitIfBareNumber==='hours' ? v*60 : v;
+  const s = String(v).toLowerCase();
+  let total = 0, found=false;
+  let mh = s.match(/([\d.]+)\s*hr/);
+  if(mh){ total += parseFloat(mh[1])*60; found=true; }
+  let mm = s.match(/([\d.]+)\s*min/);
+  if(mm){ total += parseFloat(mm[1]); found=true; }
+  if(!found){
+    let bare = s.match(/([\d.]+)/);
+    if(bare) { total = parseFloat(bare[1]) * (assumeUnitIfBareNumber==='hours'?60:1); found=true; }
+  }
+  return found ? total : null;
+}
+function parseMajorDowntime(v){
+  // "Major Complaint-Breakdown" sheet: column header says "(Mins)" but cross-checking
+  // recorded values against the provided time windows shows the numbers are actually
+  // hours (e.g. a 3-hour window is logged as "3"). Configurable in Settings.
+  return parseDurationToMinutes(v, APP.settings.downtimeUnitMajor);
+}
+function download(filename, content, mime){
+  const blob = new Blob([content], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+}
+function exportRowsCSV(filename, columns, rows){
+  const esc = v => { v = v===null||v===undefined?'':String(v); if(/[",\n]/.test(v)) v = '"'+v.replace(/"/g,'""')+'"'; return v; };
+  const lines = [columns.map(esc).join(',')];
+  rows.forEach(r=> lines.push(columns.map((c,i)=>esc(Array.isArray(r)?r[i]:r[c])).join(',')));
+  download(filename, lines.join('\n'), 'text/csv;charset=utf-8;');
+}
+function exportRowsXLSX(filename, columns, rows, sheetName){
+  const aoa = [columns].concat(rows.map(r=> columns.map((c,i)=> Array.isArray(r)?r[i]:r[c]) ));
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, (sheetName||'Data').substring(0,31));
+  XLSX.writeFile(wb, filename);
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 1 — Parsing engine
+   Every uploaded workbook is read as raw arrays-of-arrays per sheet
+   (APP.sheets). We then classify each sheet by name (with content-based
+   fallback for oddly-named tabs) and run the matching parser to build
+   normalized structures in APP.data.
+--------------------------------------------------------------------- */
+
+function countNonNull(row){ let c=0; for(let i=0;i<row.length;i++){ if(row[i]!==null && row[i]!=='' && row[i]!==undefined) c++; } return c; }
+function rowHasText(row, needle){
+  needle = needle.toLowerCase();
+  return row.some(c=> typeof c==='string' && c.toLowerCase().includes(needle));
+}
+function cellStr(v){ return v===null||v===undefined? '' : String(v).trim(); }
+
+// ---- classify a sheet name into a logical role ----
+function classifySheet(name, rows){
+  const n = name.toLowerCase();
+  if(/sr[\s\-]?av|serviceability|availability/.test(n)){
+    if(/gpu/.test(n)) return 'gpu_srav';
+    if(/pca/.test(n)) return 'pca_srav';
+    if(/pbb/.test(n)) return 'pbb_srav';
+    return 'equip_srav_unknown';
+  }
+  if(/^gpu$/.test(n) || (/gpu/.test(n) && /up\s?time/.test(n))) return 'gpu_uptime';
+  if(/^pca$/.test(n) || (/pca/.test(n) && /up\s?time/.test(n))) return 'pca_uptime';
+  if(/^pbb$/.test(n)) return 'pbb_uptime';
+  if(/pbb/.test(n) && /(complain|break ?down)/.test(n)) return 'pbb_breakdown';
+  if(/major/.test(n) && /(complain|break ?down)/.test(n)) return 'major_breakdown';
+  if(/airline/.test(n) && /compl/.test(n)) return 'airline_complaints';
+  if(/usage/.test(n)) return 'usage';
+  if(/kaizen|improvement/.test(n)) return 'kaizen';
+  if(/performance/.test(n) && /operator|report/.test(n)) return 'performance';
+  if(/performance/.test(n)) return 'performance';
+  if(/remov/.test(n) && /item/.test(n)) return 'inventory';
+
+  // content-based fallback for generically-named tabs (e.g. "Sheet4")
+  for(let i=0;i<Math.min(rows.length,8);i++){
+    const row = rows[i]||[];
+    if(rowHasText(row,'removed') || (rowHasText(row,'item name') && rowHasText(row,'qty'))) return 'inventory';
+    if(rowHasText(row,'kaizen')) return 'kaizen';
+    if(rowHasText(row,'operator name')) return 'performance';
+    if(rowHasText(row,'bme usage') || (rowHasText(row,'no. of flights'))) return 'usage';
+  }
+  return 'unknown';
+}
+
+// ---- Equipment SR-AV matrix parser (GPU/PCA/PBB Serviceability & Availability) ----
+// Layout: a date row, a header row (S.No, Stand, Equipment, day labels...), data rows
+// (numeric S.No in col 0), then an optional footer with PPM Stand / Total Hours /
+// PM Time / Down Time / Serviceability / Availability rows (per-day aggregates).
+// Cell values in the day columns are DOWNTIME MINUTES for that stand on that day.
+function parseEquipmentSRAV(rows, equipType){
+  let headerIdx = -1;
+  for(let i=0;i<Math.min(rows.length,8);i++){
+    const row = rows[i]||[];
+    if(rowHasText(row,'stand') && (rowHasText(row,'s.no')||rowHasText(row,'equipment'))){ headerIdx = i; break; }
+  }
+  if(headerIdx===-1) return null;
+  const header = rows[headerIdx];
+  const dateRow = headerIdx>0 ? rows[headerIdx-1] : [];
+
+  // locate columns
+  let colStand=-1, colEquip=-1, colSno=-1;
+  header.forEach((c,i)=>{
+    const s = cellStr(c).toLowerCase();
+    if(s==='stand' || s==='stand number') colStand=i;
+    else if(s==='equipment') colEquip=i;
+    else if(s==='s.no'||s==='s.no.') colSno=i;
+  });
+  if(colStand===-1) return null;
+  const dayStart = Math.max(colStand,colEquip,colSno)+1;
+
+  // day columns run until a header cell that is empty/non-day-like across a wide stretch;
+  // we detect the run length from the date row (contiguous Date objects) if present,
+  // else fall back to header cells that look like weekday labels.
+  let dayCols = [];
+  for(let c=dayStart;c<header.length;c++){
+    const dv = dateRow[c];
+    const hv = header[c];
+    const looksLikeDate = dv instanceof Date;
+    const looksLikeDay = typeof hv==='string' && /^(mon|tue|wed|thu|fri|sat|sun)/i.test(hv.trim());
+    const looksNumericHeader = typeof hv==='number';
+    if(looksLikeDate || looksLikeDay || looksNumericHeader){ dayCols.push(c); }
+    else if(dayCols.length>0){ break; } // stop at first non-day column after we started
+  }
+  if(dayCols.length===0) return null;
+
+  const dates = dayCols.map(c=> (dateRow[c] instanceof Date) ? dateRow[c] : null);
+
+  // data rows: numeric S.No (or numeric first non-null cell) until we hit a footer label
+  const footerLabels = ['ppm stand','total hours','pm time','down time','downtime','serviceability','availability'];
+  let dataEnd = rows.length;
+  const units = [];
+  for(let r=headerIdx+1;r<rows.length;r++){
+    const row = rows[r]||[];
+    const c0 = cellStr(row[colSno>=0?colSno:0]).toLowerCase();
+    const standVal = cellStr(row[colStand]);
+    if(footerLabels.includes(c0) || footerLabels.includes(cellStr(row[colStand]||'').toLowerCase())){ dataEnd=r; break; }
+    if(!standVal){ // blank row -> could be end of table
+      // peek ahead: if next non-blank row is a footer label, stop; otherwise skip blank row
+      let isFooterAhead=false;
+      for(let look=r; look<Math.min(r+3,rows.length); look++){
+        const l0 = cellStr((rows[look]||[])[colStand]||(rows[look]||[])[0]).toLowerCase();
+        if(footerLabels.includes(l0)){ isFooterAhead=true; break; }
+      }
+      if(isFooterAhead || r===rows.length-1){ dataEnd=r; break; }
+      continue;
+    }
+    const daily = dayCols.map(c=>{ const v=row[c]; return (typeof v==='number') ? v : (v? parseFloat(v)||0 : 0); });
+    const totalDown = daily.reduce((a,b)=>a+b,0);
+    const possible = dayCols.length*1440;
+    units.push({
+      stand: standVal,
+      equipment: cellStr(row[colEquip]) || equipType,
+      daily: daily,
+      totalDownMin: totalDown,
+      availability: possible>0 ? (possible-totalDown)/possible : null,
+      remarks: cellStr(row[header.length-1]) || null
+    });
+  }
+
+  // footer aggregates (if present) — footer row labels ("PPM Stand", "Total Hours", ...)
+  // sit wherever S.No was, not the Stand column, so check that position first.
+  const footer = {totalHours:null, pmTime:null, downTime:null, serviceability:null, availability:null};
+  for(let r=dataEnd;r<rows.length;r++){
+    const row = rows[r]||[];
+    const label = cellStr(row[colSno>=0?colSno:0] || row[colStand] || row[0] || '').toLowerCase();
+    if(!label) continue;
+    const vals = dayCols.map(c=> row[c]);
+    if(label==='total hours') footer.totalHours = vals;
+    else if(label==='pm time') footer.pmTime = vals;
+    else if(label==='down time'||label==='downtime') footer.downTime = vals;
+    else if(label==='serviceability') footer.serviceability = vals;
+    else if(label==='availability') footer.availability = vals;
+  }
+
+  const nUnits = units.length;
+  const possibleTotal = nUnits*dayCols.length*1440;
+  const sumDown = units.reduce((a,u)=>a+u.totalDownMin,0);
+  const sumPM = footer.pmTime ? footer.pmTime.reduce((a,b)=> a+(typeof b==='number'?b:0),0) : sumDown*APP.settings.pmRatioWhenMissing;
+  const sumBD = footer.downTime ? footer.downTime.reduce((a,b)=> a+(typeof b==='number'?b:0),0) : sumDown-(sumDown*APP.settings.pmRatioWhenMissing);
+
+  // daily trend series — prefer footer (already computed per-day across all stands),
+  // otherwise derive from the raw matrix.
+  let dailyAvailability, dailyServiceability;
+  if(footer.availability && footer.availability.some(v=>typeof v==='number')){
+    dailyAvailability = footer.availability.map(v=> typeof v==='number'?v:null);
+  } else {
+    dailyAvailability = dayCols.map((c,ci)=>{
+      const downSum = units.reduce((a,u)=>a+(u.daily[ci]||0),0);
+      const poss = nUnits*1440;
+      return poss>0? (poss-downSum)/poss : null;
+    });
+  }
+  if(footer.serviceability && footer.serviceability.some(v=>typeof v==='number')){
+    dailyServiceability = footer.serviceability.map(v=> typeof v==='number'?v:null);
+  } else {
+    dailyServiceability = dailyAvailability.slice();
+  }
+
+  return {
+    equipType,
+    dates, dayCols,
+    units,
+    footer,
+    unitsCount: nUnits,
+    overall:{
+      availability: possibleTotal>0 ? (possibleTotal-sumBD)/possibleTotal : null,
+      serviceability: possibleTotal>0 ? (possibleTotal-sumPM-sumBD)/possibleTotal : null,
+      downtimeHours: sumDown/60,
+      pmHours: sumPM/60,
+      breakdownHours: sumBD/60
+    },
+    dailyAvailability, dailyServiceability
+  };
+}
+
+// ---- legacy plain "Uptime" sheet parser (values ARE uptime minutes, opposite polarity to SR-AV) ----
+function parseEquipmentUptime(rows, equipType){
+  let headerIdx=-1;
+  for(let i=0;i<Math.min(rows.length,6);i++){
+    const row = rows[i]||[];
+    if(rowHasText(row,'stand') && rowHasText(row,'s.no')){ headerIdx=i; break; }
+  }
+  if(headerIdx===-1) return null;
+  const header = rows[headerIdx];
+  const dateRow = rows[headerIdx];
+  let colStand=-1,colSno=-1;
+  header.forEach((c,i)=>{ const s=cellStr(c).toLowerCase(); if(s.includes('stand')) colStand=i; else if(s.includes('s.no')) colSno=i; });
+  if(colStand===-1) return null;
+  const dayStart = colStand+1;
+  let dayCols=[];
+  for(let c=dayStart;c<header.length;c++){ if(header[c] instanceof Date) dayCols.push(c); else if(dayCols.length>0) break; }
+  if(dayCols.length===0) return null;
+  const dates = dayCols.map(c=>header[c]);
+  const units=[];
+  for(let r=headerIdx+1;r<rows.length;r++){
+    const row = rows[r]||[];
+    const standVal = cellStr(row[colStand]);
+    if(!standVal) continue;
+    const daily = dayCols.map(c=>{ const v=row[c]; return typeof v==='number'? v: null; });
+    const filled = daily.filter(v=>v!==null);
+    if(filled.length===0) continue;
+    units.push({stand:standVal, daily, avgUptimeMin: filled.reduce((a,b)=>a+b,0)/filled.length});
+  }
+  if(units.length===0) return null;
+  return {equipType, dates, dayCols, units};
+}
+
+// ---- Generic flat-table parser: finds first row with >=3 non-null cells as header ----
+function parseGenericTable(rows, opts){
+  opts = opts||{};
+  let headerIdx=-1;
+  for(let i=0;i<rows.length;i++){
+    if(countNonNull(rows[i]||[])>=3){ headerIdx=i; break; }
+  }
+  if(headerIdx===-1) return {columns:[], rows:[]};
+  const rawHeader = rows[headerIdx];
+  const columns = rawHeader.map((c,i)=> cellStr(c) || ('Col'+i));
+  const dataRows=[];
+  let blanks=0;
+  for(let r=headerIdx+1;r<rows.length;r++){
+    const row = rows[r]||[];
+    if(countNonNull(row)===0){ blanks++; if(blanks>=2) break; continue; }
+    blanks=0;
+    if(opts.stopLabelCol!==undefined){
+      const v = cellStr(row[opts.stopLabelCol]).toLowerCase();
+      if(opts.stopLabels && opts.stopLabels.includes(v)) break;
+    }
+    const obj = {};
+    columns.forEach((c,i)=> obj[c]=row[i]!==undefined?row[i]:null);
+    dataRows.push(obj);
+  }
+  return {columns, rows:dataRows, headerIdx};
+}
+
+// ---- Usage sheet: two stacked tables (daily usage, reason-wise non-usage) ----
+function parseUsageSheet(rows){
+  let h1=-1;
+  for(let i=0;i<rows.length;i++){ if(rowHasText(rows[i]||[], 'date') && rowHasText(rows[i]||[], 'flight')){ h1=i; break; } }
+  const daily=[]; let totalsRow=null;
+  if(h1>-1){
+    const header = rows[h1].map(c=>cellStr(c));
+    for(let r=h1+1;r<rows.length;r++){
+      const row = rows[r]||[];
+      const label = cellStr(row[0]);
+      if(!label) break;
+      if(label.toLowerCase()==='total'){ totalsRow=row; break; }
+      daily.push({
+        date: toDateLoose(row[0]),
+        dateLabel: label,
+        flights: typeof row[1]==='number'?row[1]:null,
+        notUsed: typeof row[2]==='number'?row[2]:null,
+        nonUsagePct: typeof row[3]==='number'?row[3]:null,
+        used: typeof row[4]==='number'?row[4]:null,
+        usagePct: typeof row[5]==='number'?row[5]:null
+      });
+    }
+  }
+  let h2=-1;
+  for(let i=0;i<rows.length;i++){ if(rowHasText(rows[i]||[], 'reason')){ h2=i; break; } }
+  const reasons=[];
+  if(h2>-1){
+    for(let r=h2+1;r<rows.length;r++){
+      const row = rows[r]||[];
+      const label = cellStr(row[1]);
+      if(!label) continue;
+      if(label.toLowerCase().startsWith('total')) break;
+      reasons.push({reason:label, count: typeof row[2]==='number'?row[2]:null, pct: typeof row[3]==='number'?row[3]:null});
+    }
+  }
+  return {daily, reasons, totalsRow};
+}
+
+// ---- Performance Report: flat table with a TOTAL row and possible trailing NOTE ----
+function parsePerformanceSheet(rows){
+  const header = rows[0]?rows[0].map(c=>cellStr(c)):[];
+  const operators=[]; let totalsRow=null;
+  for(let r=1;r<rows.length;r++){
+    const row = rows[r]||[];
+    const name = cellStr(row[0]);
+    if(!name) continue;
+    if(name.toLowerCase()==='total'){ totalsRow=row; continue; }
+    if(name.toLowerCase().startsWith('note')) continue;
+    const rec = {};
+    header.forEach((h,i)=> rec[h]=row[i]!==undefined?row[i]:null);
+    operators.push(rec);
+  }
+  return {header, operators, totalsRow};
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 2 — Aggregation: workbook -> APP.data
+--------------------------------------------------------------------- */
+function processWorkbook(wb, filename){
+  APP.sheets = {};
+  wb.SheetNames.forEach(name=>{
+    const ws = wb.Sheets[name];
+    APP.sheets[name] = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
+  });
+  APP.workbookName = filename;
+  APP.uploadedAt = new Date();
+  parseAllSheets();
+}
+
+// Re-runs classification + parsing against whatever is currently in APP.sheets.
+// Called on initial upload, and again whenever KPI Formula Settings change —
+// re-reading the source workbook is unnecessary since the raw grid is cached.
+function parseAllSheets(){
+  APP.data = {roles:{}, raw:{}, unmatched:[]};
+  Object.keys(APP.sheets).forEach(name=>{
+    const rows = APP.sheets[name];
+    const role = classifySheet(name, rows);
+    APP.data.raw[name] = {role, rows};
+    if(role==='unknown'){ APP.data.unmatched.push(name); return; }
+    try{
+      if(role==='gpu_srav') APP.data.roles.gpu = parseEquipmentSRAV(rows,'GPU');
+      else if(role==='pca_srav') APP.data.roles.pca = parseEquipmentSRAV(rows,'PCA');
+      else if(role==='pbb_srav') APP.data.roles.pbb = parseEquipmentSRAV(rows,'PBB');
+      else if(role==='gpu_uptime') APP.data.roles.gpuUptime = parseEquipmentUptime(rows,'GPU');
+      else if(role==='pca_uptime') APP.data.roles.pcaUptime = parseEquipmentUptime(rows,'PCA');
+      else if(role==='pbb_uptime') APP.data.roles.pbbUptime = parseEquipmentUptime(rows,'PBB');
+      else if(role==='airline_complaints') APP.data.roles.airlineComplaints = parseGenericTable(rows);
+      else if(role==='major_breakdown') APP.data.roles.majorBreakdown = parseGenericTable(rows);
+      else if(role==='pbb_breakdown') APP.data.roles.pbbBreakdown = parseGenericTable(rows);
+      else if(role==='inventory') APP.data.roles.inventory = parseGenericTable(rows);
+      else if(role==='kaizen') APP.data.roles.kaizen = parseGenericTable(rows);
+      else if(role==='usage') APP.data.roles.usage = parseUsageSheet(rows);
+      else if(role==='performance') APP.data.roles.performance = parsePerformanceSheet(rows);
+    }catch(e){
+      console.error('Parse error for sheet', name, e);
+      APP.data.unmatched.push(name+' (parse error)');
+    }
+  });
+  computeExecutiveKPIs();
+}
+
+function findComplaintField(rec, candidates){
+  for(const c of candidates){ if(rec[c]!==undefined) return rec[c]; }
+  // fuzzy: case-insensitive contains
+  const keys = Object.keys(rec);
+  for(const cand of candidates){
+    const k = keys.find(k=> k.toLowerCase().replace(/[^a-z]/g,'').includes(cand.toLowerCase().replace(/[^a-z]/g,'')));
+    if(k) return rec[k];
+  }
+  return null;
+}
+
+function computeExecutiveKPIs(){
+  const d = APP.data.roles;
+  const kpi = {};
+
+  kpi.gpuUnits = d.gpu ? d.gpu.unitsCount : null;
+  kpi.pcaUnits = d.pca ? d.pca.unitsCount : null;
+  kpi.pbbUnits = d.pbb ? d.pbb.unitsCount : null;
+
+  kpi.gpuAvailability = d.gpu ? d.gpu.overall.availability : null;
+  kpi.gpuServiceability = d.gpu ? d.gpu.overall.serviceability : null;
+  kpi.pcaAvailability = d.pca ? d.pca.overall.availability : null;
+  kpi.pcaServiceability = d.pca ? d.pca.overall.serviceability : null;
+  kpi.pbbAvailability = d.pbb ? d.pbb.overall.availability : null;
+  kpi.pbbServiceability = d.pbb ? d.pbb.overall.serviceability : null;
+
+  let totalComplaints = 0, haveComplaints=false;
+  if(d.airlineComplaints){ totalComplaints += d.airlineComplaints.rows.length; haveComplaints=true; }
+  if(d.pbbBreakdown){ totalComplaints += d.pbbBreakdown.rows.length; haveComplaints=true; }
+  kpi.totalComplaints = haveComplaints? totalComplaints : null;
+
+  let majorBreakdowns=0, haveBD=false;
+  if(d.majorBreakdown){ majorBreakdowns += d.majorBreakdown.rows.length; haveBD=true; }
+  kpi.majorBreakdowns = haveBD? majorBreakdowns : null;
+
+  if(d.usage && d.usage.daily.length){
+    kpi.totalFlights = d.usage.daily.reduce((a,r)=>a+(r.flights||0),0);
+    const usagePcts = d.usage.daily.map(r=>r.usagePct).filter(v=>v!==null);
+    kpi.usagePct = usagePcts.length? usagePcts.reduce((a,b)=>a+b,0)/usagePcts.length : null;
+    kpi.nonUsagePct = kpi.usagePct!==null ? 1-kpi.usagePct : null;
+  } else if(d.performance && d.performance.operators.length){
+    kpi.totalFlights = d.performance.operators.reduce((a,r)=>a+(findComplaintField(r,['TOTAL FLIGHTS'])||0),0);
+  }
+
+  if(d.kaizen){
+    kpi.kaizenCount = d.kaizen.rows.filter(r=>{
+      const impl = findComplaintField(r,['Date of Implementation']);
+      return impl!==null && impl!=='';
+    }).length || d.kaizen.rows.length;
+  }
+
+  APP.data.kpi = kpi;
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 3 — Reusable data table (search / sort / paginate / export)
+   Built without external table libraries to avoid a jQuery/DataTables
+   dependency; provides the same UX with full control over rendering.
+--------------------------------------------------------------------- */
+function renderSimpleTable(container, opts){
+  // opts: {columns:[{key,label,fmt?}], rows:[{}], pageSize, filename, sheetName, title}
+  const columns = opts.columns;
+  const allRows = opts.rows;
+  const pageSize = opts.pageSize||10;
+  let state = {search:'', sortKey:null, sortDir:1, page:1};
+
+  function filtered(){
+    if(!state.search) return allRows;
+    const q = state.search.toLowerCase();
+    return allRows.filter(r=> columns.some(c=>{
+      const v = r[c.key];
+      return v!==null && v!==undefined && String(v).toLowerCase().includes(q);
+    }));
+  }
+  function sorted(rows){
+    if(!state.sortKey) return rows;
+    const k = state.sortKey;
+    return rows.slice().sort((a,b)=>{
+      let va=a[k], vb=b[k];
+      if(va===null||va===undefined) va='';
+      if(vb===null||vb===undefined) vb='';
+      if(typeof va==='number' && typeof vb==='number') return (va-vb)*state.sortDir;
+      return String(va).localeCompare(String(vb))*state.sortDir;
+    });
+  }
+
+  function draw(){
+    const f = sorted(filtered());
+    const totalPages = Math.max(1, Math.ceil(f.length/pageSize));
+    state.page = Math.min(state.page, totalPages);
+    const start = (state.page-1)*pageSize;
+    const pageRows = f.slice(start, start+pageSize);
+
+    container.innerHTML = '';
+    const wrap = el('div','dtable-wrap');
+
+    // toolbar
+    const toolbar = el('div','dtable-toolbar');
+    const searchWrap = el('div','search-wrap');
+    searchWrap.innerHTML = '<i class="bi bi-search"></i>';
+    const searchInput = el('input','search-input');
+    searchInput.type='text'; searchInput.placeholder='Search table…'; searchInput.value=state.search;
+    searchInput.addEventListener('input', e=>{ state.search=e.target.value; state.page=1; draw(); });
+    searchWrap.appendChild(searchInput);
+    toolbar.appendChild(searchWrap);
+
+    const countTag = el('span','badge-soft neu');
+    countTag.textContent = f.length+' rows';
+    toolbar.appendChild(countTag);
+
+    const spacer = el('div'); spacer.style.flex='1'; toolbar.appendChild(spacer);
+
+    const btnCsv = el('button','btn-ghost-line'); btnCsv.innerHTML='<i class="bi bi-filetype-csv"></i> CSV';
+    btnCsv.addEventListener('click', ()=> exportRowsCSV((opts.filename||'export')+'.csv', columns.map(c=>c.label), f.map(r=>columns.map(c=>r[c.key]))));
+    const btnXlsx = el('button','btn-ghost-line'); btnXlsx.innerHTML='<i class="bi bi-file-earmark-excel"></i> Excel';
+    btnXlsx.addEventListener('click', ()=> exportRowsXLSX((opts.filename||'export')+'.xlsx', columns.map(c=>c.label), f.map(r=>columns.map(c=>r[c.key])), opts.sheetName));
+    toolbar.appendChild(btnCsv); toolbar.appendChild(btnXlsx);
+    wrap.appendChild(toolbar);
+
+    // table
+    const scrollWrap = el('div','table-scroll');
+    const table = el('table','simple-table');
+    const thead = el('thead');
+    const trh = el('tr');
+    columns.forEach(c=>{
+      const th = el('th');
+      let icon='';
+      if(state.sortKey===c.key) icon = state.sortDir===1? '<i class="bi bi-caret-up-fill"></i>':'<i class="bi bi-caret-down-fill"></i>';
+      th.innerHTML = escapeHtml(c.label)+icon;
+      th.addEventListener('click', ()=>{
+        if(state.sortKey===c.key) state.sortDir*=-1; else { state.sortKey=c.key; state.sortDir=1; }
+        draw();
+      });
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh); table.appendChild(thead);
+    const tbody = el('tbody');
+    if(pageRows.length===0){
+      const tr = el('tr'); const td = el('td'); td.colSpan=columns.length; td.style.textAlign='center'; td.style.padding='2rem';
+      td.textContent='No matching rows.'; tr.appendChild(td); tbody.appendChild(tr);
+    }
+    pageRows.forEach(r=>{
+      const tr = el('tr');
+      columns.forEach(c=>{
+        const td = el('td');
+        let v = r[c.key];
+        td.textContent = c.fmt? c.fmt(v,r) : (v===null||v===undefined?'—':v);
+        td.title = td.textContent;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    scrollWrap.appendChild(table);
+    wrap.appendChild(scrollWrap);
+
+    // pagination footer
+    const foot = el('div','dtable-foot');
+    const info = el('div');
+    info.textContent = f.length? ('Showing '+(start+1)+'–'+Math.min(start+pageSize,f.length)+' of '+f.length) : '0 results';
+    foot.appendChild(info);
+    const pager = el('div'); pager.style.display='flex'; pager.style.gap='.3rem';
+    const prev = el('button','pager-btn'); prev.innerHTML='<i class="bi bi-chevron-left"></i>'; prev.disabled = state.page<=1;
+    prev.addEventListener('click', ()=>{ state.page--; draw(); });
+    const next = el('button','pager-btn'); next.innerHTML='<i class="bi bi-chevron-right"></i>'; next.disabled = state.page>=totalPages;
+    next.addEventListener('click', ()=>{ state.page++; draw(); });
+    const pageLabel = el('span','pager-btn active'); pageLabel.textContent = state.page+' / '+totalPages;
+    pager.appendChild(prev); pager.appendChild(pageLabel); pager.appendChild(next);
+    foot.appendChild(pager);
+    wrap.appendChild(foot);
+
+    container.appendChild(wrap);
+  }
+  draw();
+  return {refresh:draw, setRows:(rows)=>{ allRows.length=0; allRows.push.apply(allRows,rows); draw(); }};
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 4 — Chart.js helpers (theme-aware, instance-tracked)
+--------------------------------------------------------------------- */
+const PALETTE = ['#2e8ff0','#17a673','#f2a93b','#e4483f','#8a63d2','#39b6c9','#e07bb0','#9aa8bd'];
+
+function chartTheme(){
+  const dark = APP.theme==='dark';
+  return {
+    text: dark? '#a9b6c9':'#465268',
+    grid: dark? 'rgba(124,139,160,0.14)':'rgba(20,40,70,0.08)',
+    tickFont: {family:"'JetBrains Mono', monospace", size:10.5}
+  };
+}
+function destroyChart(id){ if(APP.charts[id]){ APP.charts[id].destroy(); delete APP.charts[id]; } }
+function baseScales(xType){
+  const t = chartTheme();
+  return {
+    x:{ grid:{color:t.grid, display:false}, ticks:{color:t.text, font:t.tickFont, maxRotation:0, autoSkip:true} },
+    y:{ grid:{color:t.grid}, ticks:{color:t.text, font:t.tickFont}, beginAtZero:true }
+  };
+}
+function baseLegend(show){
+  const t = chartTheme();
+  return { display: show!==false, labels:{color:t.text, boxWidth:10, font:{size:11}, usePointStyle:true} };
+}
+
+function createLineChart(canvasId, labels, datasets, opts){
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId); if(!ctx) return;
+  opts = opts||{};
+  const ds = datasets.map((d,i)=>({
+    label:d.label, data:d.data,
+    borderColor: d.color||PALETTE[i%PALETTE.length],
+    backgroundColor: (d.color||PALETTE[i%PALETTE.length])+'22',
+    fill: !!d.fill, tension:0.35, pointRadius: opts.points===false?0:2.5, pointHoverRadius:5,
+    borderWidth:2, borderDash: d.dashed? [5,4]: undefined, yAxisID: d.yAxisID||'y'
+  }));
+  const scales = baseScales();
+  if(opts.pct) scales.y.ticks.callback = v=> (v*100)+'%';
+  if(opts.y2){ scales.y2 = {position:'right', grid:{display:false}, ticks:{color:chartTheme().text, font:chartTheme().tickFont}}; }
+  APP.charts[canvasId] = new Chart(ctx, {
+    type:'line',
+    data:{labels, datasets:ds},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{ legend:baseLegend(datasets.length>1), tooltip:{ callbacks: opts.tooltipPct? { label:(c)=> c.dataset.label+': '+(c.parsed.y*100).toFixed(1)+'%' }: undefined } },
+      scales
+    }
+  });
+}
+
+function createBarChart(canvasId, labels, datasets, opts){
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId); if(!ctx) return;
+  opts = opts||{};
+  const ds = datasets.map((d,i)=>({
+    label:d.label, data:d.data,
+    backgroundColor: d.colors || d.color || PALETTE[i%PALETTE.length],
+    borderRadius:4, maxBarThickness: opts.horizontal? 16:28, borderSkipped:false
+  }));
+  const scales = baseScales();
+  if(opts.horizontal){ scales.x.beginAtZero=true; }
+  if(opts.pct) (opts.horizontal? scales.x: scales.y).ticks.callback = v=> Math.round(v*100)+'%';
+  if(opts.stacked){ scales.x.stacked=true; scales.y.stacked=true; }
+  APP.charts[canvasId] = new Chart(ctx, {
+    type:'bar',
+    data:{labels, datasets:ds},
+    options:{
+      indexAxis: opts.horizontal?'y':'x',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:baseLegend(datasets.length>1 && opts.showLegend!==false), tooltip:{callbacks: opts.tooltipPct? {label:(c)=> c.dataset.label+': '+(c.parsed[opts.horizontal?'x':'y']*100).toFixed(1)+'%'}: undefined} },
+      scales,
+      onClick: opts.onClick
+    }
+  });
+}
+
+function createPieChart(canvasId, labels, values, opts){
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId); if(!ctx) return;
+  opts = opts||{};
+  const t = chartTheme();
+  APP.charts[canvasId] = new Chart(ctx, {
+    type: opts.donut===false? 'pie':'doughnut',
+    data:{labels, datasets:[{data:values, backgroundColor: labels.map((_,i)=>PALETTE[i%PALETTE.length]), borderColor: (APP.theme==='dark'?'#102240':'#ffffff'), borderWidth:2}]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout: opts.donut===false? 0:'62%',
+      plugins:{ legend:{position:'right', labels:{color:t.text, boxWidth:10, font:{size:11}}} }
+    }
+  });
+}
+
+function createParetoChart(canvasId, labels, values){
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId); if(!ctx) return;
+  const total = values.reduce((a,b)=>a+b,0)||1;
+  let running=0;
+  const cum = values.map(v=>{ running+=v; return running/total; });
+  const t = chartTheme();
+  APP.charts[canvasId] = new Chart(ctx, {
+    data:{ labels, datasets:[
+      {type:'bar', label:'Count', data:values, backgroundColor:PALETTE[0], borderRadius:4, order:2, maxBarThickness:34},
+      {type:'line', label:'Cumulative %', data:cum, borderColor:PALETTE[3], backgroundColor:PALETTE[3], yAxisID:'y1', tension:0.3, pointRadius:2.5, order:1, borderWidth:2}
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:baseLegend(true), tooltip:{callbacks:{ label:(c)=> c.dataset.type==='line'? 'Cumulative: '+(c.parsed.y*100).toFixed(0)+'%' : 'Count: '+c.parsed.y }} },
+      scales:{
+        x:{ grid:{display:false}, ticks:{color:t.text, font:t.tickFont, maxRotation:40, minRotation:0} },
+        y:{ grid:{color:t.grid}, ticks:{color:t.text, font:t.tickFont}, beginAtZero:true },
+        y1:{ position:'right', min:0, max:1, grid:{display:false}, ticks:{color:t.text, font:t.tickFont, callback:v=>(v*100)+'%'} }
+      }
+    }
+  });
+}
+
+// Resolved hex twins of the CSS custom properties of the same name — kept in sync
+// with :root manually. Canvas fillStyle (used by Chart.js and our heatmap cells'
+// inline styles) cannot resolve var(--x) reliably the way DOM/CSS contexts can,
+// so chart and cell colors are drawn from here rather than the CSS variables.
+const HEX = { green:'#17a673', amber:'#f2a93b', red:'#e4483f', blue:'#2e8ff0', steel:'rgba(124,139,160,0.35)' };
+function heatColor(ratio){ // 0 (bad) -> 1 (good) using ok/warn/crit palette
+  if(ratio===null||ratio===undefined||isNaN(ratio)) return HEX.steel;
+  if(ratio>=APP.settings.warnAvailabilityThreshold) return HEX.green;
+  if(ratio>=APP.settings.lowAvailabilityThreshold) return HEX.amber;
+  return HEX.red;
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 5 — Executive Summary view
+--------------------------------------------------------------------- */
+function kpiTileHtml(o){
+  // o: {label, value, unit, icon, color, statusRatio, higherIsBetter, sub}
+  const status = o.statusRatio!==undefined ? statusForRatio(o.statusRatio, o.higherIsBetter) : null;
+  const dotHtml = status? '<span class="status-dot '+status+'"></span>' : '';
+  return (
+  '<div class="kpi-tile" style="--tile-color:'+(o.color||'var(--signal-blue)')+'">'+
+    '<div class="kt-top"><span class="kt-label">'+escapeHtml(o.label)+'</span>'+
+    '<span class="kt-icon"><i class="bi '+o.icon+'"></i></span></div>'+
+    '<div class="kt-value">'+(o.value===null||o.value===undefined?'—':o.value)+(o.unit?'<span class="unit">'+o.unit+'</span>':'')+'</div>'+
+    '<div class="kt-foot">'+dotHtml+' '+(o.sub||'')+'</div>'+
+  '</div>');
+}
+
+function renderExecutive(){
+  const view = $('#view-executive');
+  const kpi = APP.data.kpi||{};
+  const d = APP.data.roles;
+
+  view.innerHTML = `
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-grid-1x2"></i>Fleet Overview</div><div class="rd-line"></div></div>
+    <div class="kpi-grid" id="execFleetKpis"></div>
+
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-shield-check"></i>Serviceability &amp; Availability</div><div class="rd-line"></div></div>
+    <div class="kpi-grid" id="execSrAvKpis"></div>
+
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-clipboard-data"></i>Service &amp; Utilisation</div><div class="rd-line"></div></div>
+    <div class="kpi-grid" id="execOpsKpis"></div>
+
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-bar-chart-line"></i>Snapshot</div><div class="rd-line"></div></div>
+    <div class="row-charts cols-2">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Fleet Availability vs Serviceability</h6><div class="ph-sub">By equipment class, month to date</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chartExecFleet"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Daily Usage %</h6><div class="ph-sub">Share of flights served by GPU/PCA</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chartExecUsage"></canvas></div></div>
+      </div>
+    </div>
+    <div class="row-charts cols-2" style="margin-top:1rem;">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Complaints &amp; Breakdown Events</h6><div class="ph-sub">Daily count, whole workbook period</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chartExecComplaints"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Non-Usage Reasons</h6><div class="ph-sub">Why GPU/PCA weren't connected</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chartExecReasons"></canvas></div></div>
+      </div>
+    </div>
+    ${APP.data.unmatched.length? `
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-exclamation-triangle"></i>Unrecognised Sheets</div><div class="rd-line"></div></div>
+    <div class="panel"><div class="panel-body">
+      <div class="text-muted-2" style="font-size:.82rem;">These sheets didn't match a known KPI layout and are available as raw data in the Data Explorer: ${APP.data.unmatched.map(escapeHtml).join(', ')}</div>
+    </div></div>`:''}
+  `;
+
+  $('#execFleetKpis').innerHTML = [
+    kpiTileHtml({label:'Total GPU Units', value:fmtNum(kpi.gpuUnits), icon:'bi-lightning-charge', color:'var(--signal-blue)', sub:'Ground Power Units tracked'}),
+    kpiTileHtml({label:'Total PCA Units', value:fmtNum(kpi.pcaUnits), icon:'bi-snow', color:'var(--signal-blue)', sub:'Pre-Conditioned Air units tracked'}),
+    kpiTileHtml({label:'Total PBB Units', value:fmtNum(kpi.pbbUnits), icon:'bi-diagram-3', color:'var(--signal-blue)', sub:'Passenger Boarding Bridges tracked'}),
+  ].join('');
+
+  $('#execSrAvKpis').innerHTML = [
+    kpiTileHtml({label:'GPU Availability', value:fmtPct(kpi.gpuAvailability), icon:'bi-lightning-charge', color:'var(--runway-green)', statusRatio:kpi.gpuAvailability, sub:'Month to date'}),
+    kpiTileHtml({label:'GPU Serviceability', value:fmtPct(kpi.gpuServiceability), icon:'bi-lightning-charge', color:'var(--runway-green)', statusRatio:kpi.gpuServiceability, sub:'Month to date'}),
+    kpiTileHtml({label:'PCA Availability', value:fmtPct(kpi.pcaAvailability), icon:'bi-snow', color:'var(--runway-green)', statusRatio:kpi.pcaAvailability, sub:'Month to date'}),
+    kpiTileHtml({label:'PCA Serviceability', value:fmtPct(kpi.pcaServiceability), icon:'bi-snow', color:'var(--runway-green)', statusRatio:kpi.pcaServiceability, sub:'Month to date'}),
+    kpiTileHtml({label:'PBB Availability', value:fmtPct(kpi.pbbAvailability), icon:'bi-diagram-3', color:'var(--runway-green)', statusRatio:kpi.pbbAvailability, sub:'Month to date'}),
+    kpiTileHtml({label:'PBB Serviceability', value:fmtPct(kpi.pbbServiceability), icon:'bi-diagram-3', color:'var(--runway-green)', statusRatio:kpi.pbbServiceability, sub:'Month to date'}),
+  ].join('');
+
+  $('#execOpsKpis').innerHTML = [
+    kpiTileHtml({label:'Total Complaints', value:fmtNum(kpi.totalComplaints), icon:'bi-chat-square-text', color:'var(--amber-warn)', sub:'Airline + PBB logs'}),
+    kpiTileHtml({label:'Major Breakdowns', value:fmtNum(kpi.majorBreakdowns), icon:'bi-tools', color:'var(--alert-red)', sub:'Logged maintenance events'}),
+    kpiTileHtml({label:'Total Flights Handled', value:fmtNum(kpi.totalFlights), icon:'bi-airplane', color:'var(--signal-blue)', sub:'Sum of daily flight count'}),
+    kpiTileHtml({label:'Equipment Usage', value:fmtPct(kpi.usagePct), icon:'bi-plug', color:'var(--runway-green)', statusRatio:kpi.usagePct, sub:'Avg. daily GPU/PCA usage'}),
+    kpiTileHtml({label:'Equipment Non-Usage', value:fmtPct(kpi.nonUsagePct), icon:'bi-plug-fill', color:'var(--amber-warn)', statusRatio:kpi.nonUsagePct, higherIsBetter:false, sub:'Avg. daily non-usage'}),
+    kpiTileHtml({label:'Kaizen Improvements', value:fmtNum(kpi.kaizenCount), icon:'bi-lightbulb', color:'var(--signal-blue)', sub:'Implemented this period'}),
+  ].join('');
+
+  // Fleet availability/serviceability grouped bar
+  const fleetLabels=[], availData=[], servData=[];
+  [['GPU',d.gpu],['PCA',d.pca],['PBB',d.pbb]].forEach(([label,obj])=>{
+    if(obj){ fleetLabels.push(label); availData.push(obj.overall.availability); servData.push(obj.overall.serviceability); }
+  });
+  if(fleetLabels.length){
+    createBarChart('chartExecFleet', fleetLabels, [
+      {label:'Availability', data:availData, color:PALETTE[0]},
+      {label:'Serviceability', data:servData, color:PALETTE[1]}
+    ], {pct:true, tooltipPct:true});
+  }
+
+  // Usage trend
+  if(d.usage && d.usage.daily.length){
+    createLineChart('chartExecUsage', d.usage.daily.map(r=>r.dateLabel.slice(0,5)), [
+      {label:'Usage %', data:d.usage.daily.map(r=>r.usagePct), color:PALETTE[1], fill:true}
+    ], {pct:true, tooltipPct:true, points:false});
+  }
+
+  // Complaints & breakdown daily trend
+  const complaintDates = (d.airlineComplaints?d.airlineComplaints.rows:[]).map(r=>toDateLoose(findComplaintField(r,['Date']))).filter(Boolean);
+  const breakdownDates = [];
+  if(d.majorBreakdown){
+    d.majorBreakdown.rows.forEach(r=>{
+      const raw = findComplaintField(r,['COMPLAINT DATE&TIME','REQUEST DATE&TIME']);
+      const dt = parseLooseDMY(raw);
+      if(dt) breakdownDates.push(dt);
+    });
+  }
+  const dayKey = dt=> dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate();
+  const allDaysSet = new Set([...complaintDates, ...breakdownDates].map(dayKey));
+  const sortedDays = Array.from(allDaysSet).sort();
+  if(sortedDays.length){
+    const cCounts = sortedDays.map(k=> complaintDates.filter(dt=>dayKey(dt)===k).length);
+    const bCounts = sortedDays.map(k=> breakdownDates.filter(dt=>dayKey(dt)===k).length);
+    const labels = sortedDays.map(k=>{ const [y,m,dd]=k.split('-').map(Number); return fmtDate(new Date(y,m-1,dd)); });
+    createLineChart('chartExecComplaints', labels, [
+      {label:'Complaints', data:cCounts, color:PALETTE[3]},
+      {label:'Breakdowns', data:bCounts, color:PALETTE[2]}
+    ], {points:false});
+  }
+
+  // Non-usage reasons donut
+  if(d.usage && d.usage.reasons.length){
+    const sorted = d.usage.reasons.slice().sort((a,b)=>(b.count||0)-(a.count||0));
+    createPieChart('chartExecReasons', sorted.map(r=>r.reason), sorted.map(r=>r.count||0));
+  }
+}
+
+// loose date parser for strings like "08-06-2026, 09:40" / "24-06-26, 2:30" / datetime objects / "N/A"
+function parseLooseDMY(v){
+  if(v instanceof Date) return v;
+  if(typeof v!=='string') return null;
+  const m = v.match(/(\d{1,2})[\-\/](\d{1,2})[\-\/](\d{2,4})/);
+  if(!m) return null;
+  let d=+m[1], mo=+m[2], y=+m[3]; if(y<100) y+=2000;
+  const dt = new Date(y,mo-1,d);
+  return isNaN(dt)?null:dt;
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 6 — GPU / PCA / PBB monitoring (shared renderer)
+--------------------------------------------------------------------- */
+function renderEquipmentSection(viewId, obj, label, icon){
+  const view = $('#'+viewId);
+  if(!obj){
+    view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No "'+label+' Serviceability &amp; Availability" sheet was recognised in this workbook.</div></div>';
+    return;
+  }
+  const cid = viewId.replace('view-','');
+  const worstUnits = obj.units.slice().sort((a,b)=>a.availability-b.availability).slice(0,10);
+  const standSorted = obj.units.slice().sort((a,b)=>a.availability-b.availability);
+
+  view.innerHTML = `
+    <div class="runway-divider"><div class="rd-label"><i class="bi ${icon}"></i>${label} Monitoring</div><div class="rd-line"></div></div>
+    <div class="kpi-grid">
+      ${kpiTileHtml({label:'Units Tracked', value:fmtNum(obj.unitsCount), icon:icon, color:'var(--signal-blue)', sub:obj.dayCols.length+' days in period'})}
+      ${kpiTileHtml({label:'Availability', value:fmtPct(obj.overall.availability), icon:'bi-check2-circle', color:'var(--runway-green)', statusRatio:obj.overall.availability, sub:'Fleet average'})}
+      ${kpiTileHtml({label:'Serviceability', value:fmtPct(obj.overall.serviceability), icon:'bi-shield-check', color:'var(--runway-green)', statusRatio:obj.overall.serviceability, sub:'Fleet average'})}
+      ${kpiTileHtml({label:'Breakdown Hours', value:fmtNum(obj.overall.breakdownHours,1), icon:'bi-exclamation-octagon', color:'var(--alert-red)', sub:'Unplanned downtime'})}
+      ${kpiTileHtml({label:'PM Hours', value:fmtNum(obj.overall.pmHours,1), icon:'bi-tools', color:'var(--amber-warn)', sub:'Planned maintenance'})}
+      ${kpiTileHtml({label:'Total Downtime', value:fmtNum(obj.overall.downtimeHours,1), icon:'bi-hourglass-split', color:'var(--steel-400)', sub:'PM + breakdown combined'})}
+    </div>
+
+    <div class="row-charts cols-2" style="margin-top:1.1rem;">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Daily Availability &amp; Serviceability Trend</h6><div class="ph-sub">Fleet-wide, per day</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:270px;"><canvas id="chart_${cid}_trend"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Top 10 Lowest Availability Units</h6><div class="ph-sub">Attention priority this period</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:270px;"><canvas id="chart_${cid}_worst"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Stand-wise Availability</h6><div class="ph-sub">All ${obj.unitsCount} tracked stands, sorted lowest to highest</div></div></div>
+      <div class="panel-body"><div class="chart-box" style="height:${Math.max(220,obj.unitsCount*17)}px;"><canvas id="chart_${cid}_stands"></canvas></div></div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Downtime Heat Map</h6><div class="ph-sub">Minutes down per stand per day &middot; darker = worse</div></div></div>
+      <div class="panel-body" id="heatmap_${cid}"></div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>${label} Unit Register</h6><div class="ph-sub">Per-stand serviceability detail</div></div></div>
+      <div class="panel-body p-0" id="table_${cid}"></div>
+    </div>
+  `;
+
+  createLineChart('chart_'+cid+'_trend', (obj.dates.map((dt,i)=>dt?fmtDate(dt):('D'+(i+1)))), [
+    {label:'Availability', data:obj.dailyAvailability, color:PALETTE[0]},
+    {label:'Serviceability', data:obj.dailyServiceability, color:PALETTE[1], dashed:true}
+  ], {pct:true, tooltipPct:true, points:false});
+
+  createBarChart('chart_'+cid+'_worst', worstUnits.map(u=>u.stand), [
+    {label:'Availability', data:worstUnits.map(u=>u.availability), colors: worstUnits.map(u=>heatColor(u.availability))}
+  ], {horizontal:true, pct:true, tooltipPct:true, showLegend:false});
+
+  createBarChart('chart_'+cid+'_stands', standSorted.map(u=>u.stand), [
+    {label:'Availability', data:standSorted.map(u=>u.availability), colors: standSorted.map(u=>heatColor(u.availability))}
+  ], {horizontal:true, pct:true, tooltipPct:true, showLegend:false});
+
+  renderDowntimeHeatmap('heatmap_'+cid, obj);
+
+  renderSimpleTable(document.getElementById('table_'+cid), {
+    filename: cid+'_unit_register',
+    sheetName: label,
+    columns:[
+      {key:'stand', label:'Stand'},
+      {key:'equipment', label:'Equipment'},
+      {key:'totalDownMin', label:'Downtime (hrs)', fmt:v=>fmtNum(v/60,1)},
+      {key:'availability', label:'Availability', fmt:v=>fmtPct(v)},
+      {key:'remarks', label:'Remarks'}
+    ],
+    rows: obj.units
+  });
+}
+
+function renderDowntimeHeatmap(containerId, obj){
+  const container = document.getElementById(containerId);
+  const maxRows = 40; // cap for readability; full detail remains in the table below
+  const units = obj.units.slice(0,maxRows);
+  const dateLabels = obj.dates.map((dt,i)=> dt? fmtDate(dt).replace(' ','') : (i+1));
+  let html = '<div style="overflow-x:auto;"><table style="border-collapse:collapse;font-size:.65rem;width:100%;">';
+  html += '<thead><tr><th style="position:sticky;left:0;background:var(--bg-surface);text-align:left;padding:.3rem .5rem;color:var(--text-secondary);">Stand</th>';
+  dateLabels.forEach(l=> html += '<th style="padding:.15rem .1rem;color:var(--text-muted);font-weight:500;min-width:20px;">'+l+'</th>');
+  html += '</tr></thead><tbody>';
+  units.forEach(u=>{
+    html += '<tr><td style="position:sticky;left:0;background:var(--bg-surface);padding:.2rem .5rem;font-family:var(--font-mono);color:var(--text-secondary);white-space:nowrap;">'+escapeHtml(u.stand)+'</td>';
+    u.daily.forEach(mins=>{
+      const ratio = 1-(mins/1440);
+      const c = heatColor(ratio);
+      const title = mins+' min down';
+      html += '<td style="padding:1px;"><div class="heat-cell" title="'+title+'" style="background:'+(mins===0?'rgba(23,166,115,0.28)':c)+';"></div></td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  if(obj.units.length>maxRows) html += '<div class="text-muted-2" style="font-size:.72rem;margin-top:.5rem;">Showing first '+maxRows+' of '+obj.units.length+' stands. Full detail in the register table below.</div>';
+  container.innerHTML = html;
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 7 — Complaint Analytics
+--------------------------------------------------------------------- */
+function groupCount(items, keyFn){
+  const map = new Map();
+  items.forEach(it=>{
+    let k = keyFn(it);
+    k = (k===null||k===undefined||k==='')? 'Unspecified' : String(k).trim();
+    map.set(k, (map.get(k)||0)+1);
+  });
+  return Array.from(map.entries()).map(([k,v])=>({key:k,count:v})).sort((a,b)=>b.count-a.count);
+}
+
+function renderComplaints(){
+  const view = $('#view-complaints');
+  const t = APP.data.roles.airlineComplaints;
+  if(!t || !t.rows.length){
+    view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No "Airline Complaints" sheet was recognised in this workbook.</div></div>';
+    return;
+  }
+  const rows = t.rows;
+  const get = (r,keys)=> findComplaintField(r,keys);
+
+  const byUnit = groupCount(rows, r=>get(r,['Unit']));
+  const byStand = groupCount(rows, r=>get(r,['Stand']));
+  const byType = groupCount(rows, r=>get(r,['Type of Complaint']));
+
+  let resTimes = [];
+  rows.forEach(r=>{
+    const rec = timeToMinutes(get(r,['Complaint Recived Time','Complaint Received Time']));
+    const clo = timeToMinutes(get(r,['Complaint Closed Time']));
+    const mm = minutesBetween(rec, clo);
+    if(mm!==null && mm<600) resTimes.push(mm); // drop outliers > 10h (likely data entry / overnight edge cases)
+  });
+  const avgRes = resTimes.length? resTimes.reduce((a,b)=>a+b,0)/resTimes.length : null;
+
+  const dates = rows.map(r=>toDateLoose(get(r,['Date']))).filter(Boolean);
+  const dayKey = dt=> dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate();
+  const uniqDays = Array.from(new Set(dates.map(dayKey))).sort();
+  const dailyCounts = uniqDays.map(k=> dates.filter(dt=>dayKey(dt)===k).length);
+  const dayLabels = uniqDays.map(k=>{ const [y,m,d]=k.split('-').map(Number); return fmtDate(new Date(y,m-1,d)); });
+
+  view.innerHTML = `
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-chat-square-text"></i>Complaint Analytics</div><div class="rd-line"></div></div>
+    <div class="kpi-grid">
+      ${kpiTileHtml({label:'Total Complaints', value:fmtNum(rows.length), icon:'bi-chat-square-text', color:'var(--amber-warn)', sub:'Airline Complaints log'})}
+      ${kpiTileHtml({label:'Top Equipment', value:byUnit[0]?byUnit[0].key:'—', icon:'bi-cpu', color:'var(--signal-blue)', sub:byUnit[0]?byUnit[0].count+' complaints':''})}
+      ${kpiTileHtml({label:'Top Stand', value:byStand[0]?byStand[0].key:'—', icon:'bi-signpost-2', color:'var(--signal-blue)', sub:byStand[0]?byStand[0].count+' complaints':''})}
+      ${kpiTileHtml({label:'Leading Category', value:byType[0]?byType[0].key:'—', icon:'bi-tags', color:'var(--signal-blue)', sub:byType[0]?byType[0].count+' occurrences':''})}
+      ${kpiTileHtml({label:'Avg. Resolution Time', value:avgRes!==null?fmtNum(avgRes,0):'—', unit:avgRes!==null?'min':'', icon:'bi-stopwatch', color:'var(--runway-green)', sub:'Received to closed'})}
+      ${kpiTileHtml({label:'Categories Logged', value:fmtNum(byType.length), icon:'bi-diagram-2', color:'var(--steel-400)', sub:'Distinct complaint types'})}
+    </div>
+
+    <div class="row-charts cols-2" style="margin-top:1.1rem;">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Complaint Type — Pareto</h6><div class="ph-sub">Root-cause categories, ranked by frequency</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_complaints_pareto"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Complaint Trend</h6><div class="ph-sub">Daily count across the reporting period</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_complaints_trend"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="row-charts cols-2" style="margin-top:1rem;">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Complaint Type Distribution</h6></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:270px;"><canvas id="chart_complaints_type_dist"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Stand-wise Complaints</h6><div class="ph-sub">Top 12 stands</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:270px;"><canvas id="chart_complaints_by_stand"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Complaint Log</h6><div class="ph-sub">Full register from the Airline Complaints sheet</div></div></div>
+      <div class="panel-body p-0" id="table_complaints"></div>
+    </div>
+  `;
+
+  createParetoChart('chart_complaints_pareto', byType.map(x=>x.key), byType.map(x=>x.count));
+  createLineChart('chart_complaints_trend', dayLabels, [{label:'Complaints', data:dailyCounts, color:PALETTE[3], fill:true}], {points:false});
+  createPieChart('chart_complaints_type_dist', byType.map(x=>x.key), byType.map(x=>x.count));
+  const topStands = byStand.slice(0,12);
+  createBarChart('chart_complaints_by_stand', topStands.map(x=>x.key), [{label:'Complaints', data:topStands.map(x=>x.count), color:PALETTE[2]}], {showLegend:false});
+
+  renderSimpleTable(document.getElementById('table_complaints'), {
+    filename:'airline_complaints', sheetName:'Complaints',
+    columns: t.columns.map(c=>({key:c, label:c})),
+    rows: rows
+  });
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 8 — Breakdown Dashboard
+--------------------------------------------------------------------- */
+function renderBreakdowns(){
+  const view = $('#view-breakdowns');
+  const major = APP.data.roles.majorBreakdown;
+  const pbbBd = APP.data.roles.pbbBreakdown;
+  if(!major && !pbbBd){
+    view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No breakdown/maintenance sheets were recognised in this workbook.</div></div>';
+    return;
+  }
+  const get = (r,keys)=> findComplaintField(r,keys);
+  const majorRows = major? major.rows : [];
+  const pbbRows = pbbBd? pbbBd.rows : [];
+
+  const majorDurations = majorRows.map(r=> parseMajorDowntime(get(r,['UNIT DOWNTIME(Mins)','UNIT DOWNTIME'])) ).filter(v=>v!==null);
+  const pbbDurations = pbbRows.map(r=> parseDurationToMinutes(get(r,['Total Breakdown Time'])) ).filter(v=>v!==null);
+  const allDurations = majorDurations.concat(pbbDurations);
+  const totalHours = allDurations.reduce((a,b)=>a+b,0)/60;
+  const mttr = allDurations.length? (allDurations.reduce((a,b)=>a+b,0)/allDurations.length)/60 : null;
+
+  const isOpen = r=>{
+    const text = (cellStr(get(r,['ACTION TAKEN']))+' '+cellStr(get(r,['REMARKS']))).toLowerCase();
+    return /pending|still|not rectified|awaiting/.test(text);
+  };
+  const openCount = majorRows.filter(isOpen).length;
+  const closedCount = majorRows.length - openCount;
+
+  const byEquip = groupCount(majorRows, r=> cellStr(get(r,['UNIT'])).toUpperCase().trim());
+  const byStandMajor = groupCount(majorRows.filter(r=>get(r,['STAND NUMBER'])), r=>get(r,['STAND NUMBER']));
+  const byCategory = groupCount(majorRows, r=>get(r,['Type of Complaint']));
+
+  view.innerHTML = `
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-tools"></i>Breakdown Dashboard</div><div class="rd-line"></div></div>
+    <div class="kpi-grid">
+      ${kpiTileHtml({label:'Total Breakdowns', value:fmtNum(majorRows.length+pbbRows.length), icon:'bi-tools', color:'var(--alert-red)', sub:'Major + PBB logs'})}
+      ${kpiTileHtml({label:'Breakdown Hours', value:fmtNum(totalHours,1), icon:'bi-hourglass-split', color:'var(--amber-warn)', sub:'Cumulative downtime'})}
+      ${kpiTileHtml({label:'MTTR', value:mttr!==null?fmtNum(mttr,2):'—', unit:mttr!==null?'hrs':'', icon:'bi-speedometer', color:'var(--signal-blue)', sub:'Mean time to repair'})}
+      ${kpiTileHtml({label:'Equipment-wise Events', value:fmtNum(byEquip.length), icon:'bi-cpu', color:'var(--steel-400)', sub:'Distinct equipment types'})}
+      ${kpiTileHtml({label:'Open Issues', value:fmtNum(openCount), icon:'bi-exclamation-circle', color:'var(--alert-red)', sub:'Marked pending / in progress'})}
+      ${kpiTileHtml({label:'Closed Issues', value:fmtNum(closedCount), icon:'bi-check-circle', color:'var(--runway-green)', sub:'Resolved this period'})}
+    </div>
+
+    <div class="row-charts cols-2" style="margin-top:1.1rem;">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Breakdown Category Analysis</h6><div class="ph-sub">Major Complaint / Breakdown log</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_bd_category"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Equipment-wise Breakdown Count</h6></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_bd_equip"></canvas></div></div>
+      </div>
+    </div>
+    <div class="row-charts cols-2" style="margin-top:1rem;">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Stand-wise Breakdown Count</h6></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_bd_stand"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Open vs Closed</h6></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_bd_status"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Major Complaint / Breakdown Log</h6><div class="ph-sub">GPU &amp; PCA maintenance events${major? ' &middot; downtime column interpreted as '+APP.settings.downtimeUnitMajor+' (change in Settings)':''}</div></div></div>
+      <div class="panel-body p-0" id="table_bd_major"></div>
+    </div>
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>PBB Breakdown Log</h6></div></div>
+      <div class="panel-body p-0" id="table_bd_pbb"></div>
+    </div>
+  `;
+
+  createBarChart('chart_bd_category', byCategory.map(x=>x.key), [{label:'Events', data:byCategory.map(x=>x.count), color:PALETTE[3]}], {horizontal:true, showLegend:false});
+  createBarChart('chart_bd_equip', byEquip.map(x=>x.key), [{label:'Events', data:byEquip.map(x=>x.count), color:PALETTE[0]}], {showLegend:false});
+  createBarChart('chart_bd_stand', byStandMajor.slice(0,14).map(x=>x.key), [{label:'Events', data:byStandMajor.slice(0,14).map(x=>x.count), color:PALETTE[2]}], {showLegend:false});
+  createPieChart('chart_bd_status', ['Open','Closed'], [openCount, closedCount]);
+
+  if(major){
+    renderSimpleTable(document.getElementById('table_bd_major'), {
+      filename:'major_breakdown', sheetName:'Major Breakdown',
+      columns: major.columns.map(c=>({key:c,label:c})),
+      rows: majorRows
+    });
+  } else {
+    document.getElementById('table_bd_major').innerHTML = '<div class="p-3 text-muted-2">Sheet not found.</div>';
+  }
+  if(pbbBd){
+    renderSimpleTable(document.getElementById('table_bd_pbb'), {
+      filename:'pbb_breakdown', sheetName:'PBB Breakdown',
+      columns: pbbBd.columns.map(c=>({key:c,label:c})),
+      rows: pbbRows
+    });
+  } else {
+    document.getElementById('table_bd_pbb').innerHTML = '<div class="p-3 text-muted-2">Sheet not found.</div>';
+  }
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 9 — Usage Analysis Dashboard
+--------------------------------------------------------------------- */
+function renderUsage(){
+  const view = $('#view-usage');
+  const u = APP.data.roles.usage;
+  if(!u || !u.daily.length){
+    view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No "Usage Summary" sheet was recognised in this workbook.</div></div>';
+    return;
+  }
+  const totalFlights = u.daily.reduce((a,r)=>a+(r.flights||0),0);
+  const totalUsed = u.daily.reduce((a,r)=>a+(r.used||0),0);
+  const totalNotUsed = u.daily.reduce((a,r)=>a+(r.notUsed||0),0);
+  const avgUsage = u.daily.map(r=>r.usagePct).filter(v=>v!==null);
+  const avgUsagePct = avgUsage.length? avgUsage.reduce((a,b)=>a+b,0)/avgUsage.length : null;
+
+  const labels = u.daily.map(r=>r.dateLabel.slice(0,5));
+
+  view.innerHTML = `
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-pie-chart"></i>Usage Analysis</div><div class="rd-line"></div></div>
+    <div class="kpi-grid">
+      ${kpiTileHtml({label:'Total Flights', value:fmtNum(totalFlights), icon:'bi-airplane', color:'var(--signal-blue)', sub:u.daily.length+' days logged'})}
+      ${kpiTileHtml({label:'BME Used', value:fmtNum(totalUsed), icon:'bi-plug', color:'var(--runway-green)', sub:'Flights served by GPU/PCA'})}
+      ${kpiTileHtml({label:'BME Not Used', value:fmtNum(totalNotUsed), icon:'bi-plug-fill', color:'var(--amber-warn)', sub:'Flights not served'})}
+      ${kpiTileHtml({label:'Avg. Usage %', value:fmtPct(avgUsagePct), icon:'bi-graph-up', color:'var(--runway-green)', statusRatio:avgUsagePct, sub:'Mean of daily usage %'})}
+    </div>
+
+    <div class="row-charts cols-2" style="margin-top:1.1rem;">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Usage vs Non-Usage Trend</h6><div class="ph-sub">Daily percentage split</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_usage_trend"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Flight Count Trend</h6></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_flight_trend"></canvas></div></div>
+      </div>
+    </div>
+    <div class="row-charts cols-2" style="margin-top:1rem;">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Reason-wise Non-Usage Analysis</h6></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_reason_pie"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Non-Usage Reasons — Ranked</h6></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_reason_bar"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Daily Usage Log</h6></div></div>
+      <div class="panel-body p-0" id="table_usage"></div>
+    </div>
+  `;
+
+  createLineChart('chart_usage_trend', labels, [
+    {label:'Usage %', data:u.daily.map(r=>r.usagePct), color:PALETTE[1], fill:true},
+    {label:'Non-Usage %', data:u.daily.map(r=>r.nonUsagePct), color:PALETTE[2]}
+  ], {pct:true, tooltipPct:true, points:false});
+
+  createBarChart('chart_flight_trend', labels, [{label:'Flights', data:u.daily.map(r=>r.flights), color:PALETTE[0]}], {showLegend:false});
+
+  const reasonsSorted = u.reasons.slice().sort((a,b)=>(b.count||0)-(a.count||0));
+  createPieChart('chart_reason_pie', reasonsSorted.map(r=>r.reason), reasonsSorted.map(r=>r.count||0));
+  createBarChart('chart_reason_bar', reasonsSorted.map(r=>r.reason), [{label:'Occurrences', data:reasonsSorted.map(r=>r.count||0), color:PALETTE[4]}], {horizontal:true, showLegend:false});
+
+  renderSimpleTable(document.getElementById('table_usage'), {
+    filename:'usage_summary', sheetName:'Usage',
+    columns:[
+      {key:'dateLabel', label:'Date'},
+      {key:'flights', label:'Flights'},
+      {key:'notUsed', label:'Not Used'},
+      {key:'nonUsagePct', label:'Non-Usage %', fmt:v=>fmtPct(v)},
+      {key:'used', label:'Used'},
+      {key:'usagePct', label:'Usage %', fmt:v=>fmtPct(v)}
+    ],
+    rows: u.daily
+  });
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 10 — Operator Performance Dashboard
+--------------------------------------------------------------------- */
+function renderOperators(){
+  const view = $('#view-operators');
+  const p = APP.data.roles.performance;
+  if(!p || !p.operators.length){
+    view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No "Operator Performance Report" sheet was recognised in this workbook.</div></div>';
+    return;
+  }
+  const get=(r,keys)=>findComplaintField(r,keys);
+  const all = p.operators;
+  const active = all.filter(r=> (get(r,['TOTAL FLIGHTS'])||0) > 0);
+  const ranked = active.slice().sort((a,b)=>(get(b,['USAGE %'])||0)-(get(a,['USAGE %'])||0));
+  const best = ranked[0];
+  const worst = ranked[ranked.length-1];
+  const totalFlights = all.reduce((a,r)=>a+(get(r,['TOTAL FLIGHTS'])||0),0);
+  const totalUsed = all.reduce((a,r)=>a+(get(r,['BME USED'])||0),0);
+  const overallUsage = totalFlights>0? totalUsed/totalFlights : null;
+
+  const top10 = ranked.slice(0,10);
+  const byFlights = active.slice().sort((a,b)=>(get(b,['TOTAL FLIGHTS'])||0)-(get(a,['TOTAL FLIGHTS'])||0)).slice(0,10);
+
+  view.innerHTML = `
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-person-badge"></i>Operator Performance</div><div class="rd-line"></div></div>
+    <div class="kpi-grid">
+      ${kpiTileHtml({label:'Total Operators', value:fmtNum(all.length), icon:'bi-people', color:'var(--signal-blue)', sub:active.length+' active this period'})}
+      ${kpiTileHtml({label:'Best Performer', value:best?best['OPERATOR NAME']:'—', icon:'bi-trophy', color:'var(--runway-green)', sub:best?fmtPct(get(best,['USAGE %']))+' usage':''})}
+      ${kpiTileHtml({label:'Lowest Performer', value:worst?worst['OPERATOR NAME']:'—', icon:'bi-arrow-down-circle', color:'var(--alert-red)', sub:worst?fmtPct(get(worst,['USAGE %']))+' usage':''})}
+      ${kpiTileHtml({label:'Overall Usage %', value:fmtPct(overallUsage), icon:'bi-graph-up-arrow', color:'var(--runway-green)', statusRatio:overallUsage, sub:'Fleet-wide BME usage'})}
+    </div>
+
+    <div class="row-charts cols-2" style="margin-top:1.1rem;">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Top 10 Operators by Usage %</h6></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_op_top10"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Flights Handled per Operator</h6><div class="ph-sub">Top 10 by volume</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_op_flights"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Usage vs Non-Usage — Operator Ranking</h6></div></div>
+      <div class="panel-body"><div class="chart-box" style="height:${Math.max(240,Math.min(active.length,30)*20)}px;"><canvas id="chart_op_ranking"></canvas></div></div>
+    </div>
+
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-award"></i>Operator Scorecard — Top 5</div><div class="rd-line"></div></div>
+    <div style="display:grid;gap:.6rem;" id="op_scorecards"></div>
+
+    <div class="panel" style="margin-top:1.2rem;">
+      <div class="panel-head"><div><h6>Operator Performance Report</h6><div class="ph-sub">Full register</div></div></div>
+      <div class="panel-body p-0" id="table_operators"></div>
+    </div>
+  `;
+
+  createBarChart('chart_op_top10', top10.map(r=>r['OPERATOR NAME']), [{label:'Usage %', data:top10.map(r=>get(r,['USAGE %'])), color:PALETTE[1]}], {horizontal:true, pct:true, tooltipPct:true, showLegend:false});
+  createBarChart('chart_op_flights', byFlights.map(r=>r['OPERATOR NAME']), [{label:'Flights', data:byFlights.map(r=>get(r,['TOTAL FLIGHTS'])), color:PALETTE[0]}], {horizontal:true, showLegend:false});
+
+  const rankSlice = ranked.slice(0, Math.min(active.length,30));
+  createBarChart('chart_op_ranking', rankSlice.map(r=>r['OPERATOR NAME']), [
+    {label:'Usage %', data:rankSlice.map(r=>get(r,['USAGE %'])), color:PALETTE[1]},
+    {label:'Non-Usage %', data:rankSlice.map(r=>get(r,['NON USAGE %'])), color:PALETTE[3]}
+  ], {horizontal:true, pct:true, tooltipPct:true, stacked:true});
+
+  const scWrap = document.getElementById('op_scorecards');
+  scWrap.innerHTML = ranked.slice(0,5).map((r,i)=>{
+    const usage = get(r,['USAGE %'])||0;
+    const color = usage>=0.85?'var(--runway-green)':usage>=0.7?'var(--amber-warn)':'var(--alert-red)';
+    return '<div class="scorecard">'+
+      '<div class="rank">#'+(i+1)+'</div>'+
+      '<div style="flex:1;">'+
+        '<div class="name">'+escapeHtml(r['OPERATOR NAME'])+'</div>'+
+        '<div class="sub">'+fmtNum(get(r,['TOTAL FLIGHTS']))+' flights &middot; '+fmtNum(get(r,['BOTH CONNECTED']))+' both connected</div>'+
+        '<div class="progress-track" style="margin-top:.4rem;width:220px;"><div class="progress-fill" style="width:'+(usage*100).toFixed(0)+'%;background:'+color+';"></div></div>'+
+      '</div>'+
+      '<div class="metric"><div class="v">'+fmtPct(usage)+'</div><div class="l">Usage</div></div>'+
+    '</div>';
+  }).join('');
+
+  renderSimpleTable(document.getElementById('table_operators'), {
+    filename:'operator_performance', sheetName:'Operators',
+    columns: p.header.map(h=>({key:h, label:h, fmt: /%\s*$/.test(h.trim()) ? v=>fmtPct(v):undefined })),
+    rows: all
+  });
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 11 — Inventory Dashboard (Removed Item List)
+--------------------------------------------------------------------- */
+function renderInventory(){
+  const view = $('#view-inventory');
+  const inv = APP.data.roles.inventory;
+  if(!inv || !inv.rows.length){
+    view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No "Removed Item Inventory" sheet was recognised in this workbook.</div></div>';
+    return;
+  }
+  const get=(r,keys)=>findComplaintField(r,keys);
+  const rows = inv.rows;
+  const totalQty = rows.reduce((a,r)=>a+(typeof get(r,['Qty.','Qty'])==='number'?get(r,['Qty.','Qty']):1),0);
+
+  const byItem = new Map();
+  rows.forEach(r=>{
+    const name = cellStr(get(r,['Item Name'])) || 'Unspecified';
+    const qty = typeof get(r,['Qty.','Qty'])==='number'? get(r,['Qty.','Qty']) : 1;
+    byItem.set(name, (byItem.get(name)||0)+qty);
+  });
+  const itemRanked = Array.from(byItem.entries()).map(([key,count])=>({key,count})).sort((a,b)=>b.count-a.count);
+
+  const byUnit = groupCount(rows, r=>get(r,['Remove From Unit']));
+
+  const dated = rows.map(r=>({d:toDateLoose(get(r,['Date'])), item:get(r,['Item Name'])})).filter(x=>x.d);
+  const monthKey = d=> d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  const months = Array.from(new Set(dated.map(x=>monthKey(x.d)))).sort();
+  const monthCounts = months.map(mk=> dated.filter(x=>monthKey(x.d)===mk).length);
+  const monthLabels = months.map(mk=>{ const [y,m]=mk.split('-').map(Number); return new Date(y,m-1,1).toLocaleDateString('en-GB',{month:'short',year:'2-digit'}); });
+
+  view.innerHTML = `
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-box-seam"></i>Inventory Dashboard</div><div class="rd-line"></div></div>
+    <div class="kpi-grid">
+      ${kpiTileHtml({label:'Total Removed Parts', value:fmtNum(totalQty), icon:'bi-box-seam', color:'var(--signal-blue)', sub:rows.length+' log entries'})}
+      ${kpiTileHtml({label:'Distinct Components', value:fmtNum(itemRanked.length), icon:'bi-diagram-3', color:'var(--steel-400)', sub:'Unique item names'})}
+      ${kpiTileHtml({label:'Most Replaced', value:itemRanked[0]?itemRanked[0].key:'—', icon:'bi-arrow-repeat', color:'var(--amber-warn)', sub:itemRanked[0]?itemRanked[0].count+' removed':''})}
+      ${kpiTileHtml({label:'Top Source Unit', value:byUnit[0]?byUnit[0].key:'—', icon:'bi-geo-alt', color:'var(--steel-400)', sub:byUnit[0]?byUnit[0].count+' items':''})}
+    </div>
+
+    <div class="row-charts cols-2" style="margin-top:1.1rem;">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Frequent Component Failures</h6><div class="ph-sub">Top 12 most-replaced parts</div></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_inv_top"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Inventory by Source Unit</h6></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_inv_unit"></canvas></div></div>
+      </div>
+    </div>
+    ${monthLabels.length>1? `
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Component Replacement Trend</h6><div class="ph-sub">Removals per month, where a date was recorded</div></div></div>
+      <div class="panel-body"><div class="chart-box" style="height:240px;"><canvas id="chart_inv_trend"></canvas></div></div>
+    </div>`:''}
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Removed Item Register</h6></div></div>
+      <div class="panel-body p-0" id="table_inventory"></div>
+    </div>
+  `;
+
+  const top12 = itemRanked.slice(0,12);
+  createBarChart('chart_inv_top', top12.map(x=>x.key), [{label:'Qty removed', data:top12.map(x=>x.count), color:PALETTE[2]}], {horizontal:true, showLegend:false});
+  createPieChart('chart_inv_unit', byUnit.slice(0,8).map(x=>x.key), byUnit.slice(0,8).map(x=>x.count));
+  if(monthLabels.length>1) createLineChart('chart_inv_trend', monthLabels, [{label:'Removals', data:monthCounts, color:PALETTE[0], fill:true}], {points:true});
+
+  renderSimpleTable(document.getElementById('table_inventory'), {
+    filename:'removed_items', sheetName:'Inventory',
+    columns: inv.columns.map(c=>({key:c,label:c})),
+    rows: rows
+  });
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 12 — Kaizen / Improvement Dashboard
+--------------------------------------------------------------------- */
+function renderKaizen(){
+  const view = $('#view-kaizen');
+  const k = APP.data.roles.kaizen;
+  if(!k || !k.rows.length){
+    view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No "Kaizen / Improvement Activities" sheet was recognised in this workbook.</div></div>';
+    return;
+  }
+  const get=(r,keys)=>findComplaintField(r,keys);
+  const rows = k.rows;
+  const implemented = rows.filter(r=> cellStr(get(r,['Date of Implementation'])) !== '');
+  const pending = rows.length - implemented.length;
+  const byUnit = groupCount(rows, r=>get(r,['Unit']));
+
+  view.innerHTML = `
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-lightbulb"></i>Kaizen / Improvement Tracker</div><div class="rd-line"></div></div>
+    <div class="kpi-grid">
+      ${kpiTileHtml({label:'Total Kaizens Logged', value:fmtNum(rows.length), icon:'bi-lightbulb', color:'var(--signal-blue)', sub:'This reporting period'})}
+      ${kpiTileHtml({label:'Implemented', value:fmtNum(implemented.length), icon:'bi-check-circle', color:'var(--runway-green)', sub:'Completed'})}
+      ${kpiTileHtml({label:'Pending', value:fmtNum(pending), icon:'bi-hourglass-split', color:'var(--amber-warn)', sub:'Identified, not yet closed'})}
+      ${kpiTileHtml({label:'Equipment Types Improved', value:fmtNum(byUnit.length), icon:'bi-diagram-3', color:'var(--steel-400)', sub:'Distinct units touched'})}
+    </div>
+
+    <div class="row-charts cols-2" style="margin-top:1.1rem;">
+      <div class="panel">
+        <div class="panel-head"><div><h6>Kaizen Status</h6></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_kaizen_status"></canvas></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h6>Improvements by Equipment</h6></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_kaizen_unit"></canvas></div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Implementation Timeline</h6></div></div>
+      <div class="panel-body" id="kaizen_timeline"></div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Improvement Tracker — Full Log</h6></div></div>
+      <div class="panel-body p-0" id="table_kaizen"></div>
+    </div>
+  `;
+
+  createPieChart('chart_kaizen_status', ['Implemented','Pending'], [implemented.length, pending]);
+  createBarChart('chart_kaizen_unit', byUnit.map(x=>x.key), [{label:'Count', data:byUnit.map(x=>x.count), color:PALETTE[0]}], {showLegend:false});
+
+  const tl = document.getElementById('kaizen_timeline');
+  if(rows.length){
+    tl.innerHTML = '<div style="display:flex;flex-direction:column;gap:.6rem;">'+rows.map(r=>{
+      const done = cellStr(get(r,['Date of Implementation']))!=='';
+      return '<div style="display:flex;align-items:flex-start;gap:.7rem;padding:.6rem;border:1px solid var(--border-soft);border-radius:9px;background:var(--bg-surface-2);">'+
+        '<span class="status-dot '+(done?'ok':'warn')+'" style="margin-top:.35rem;"></span>'+
+        '<div style="flex:1;">'+
+          '<div style="font-weight:600;font-size:.82rem;">'+escapeHtml(get(r,['Node'])||'—')+' &middot; '+escapeHtml(get(r,['Unit'])||'—')+'</div>'+
+          '<div class="text-muted-2" style="font-size:.78rem;margin:.15rem 0;">'+escapeHtml(get(r,['KAIZEN Details'])||'')+'</div>'+
+          '<div style="font-size:.7rem;color:var(--text-muted);">Identified: '+escapeHtml(get(r,['Date of Identification'])||'—')+' &rarr; Implemented: '+escapeHtml(get(r,['Date of Implementation'])||'Pending')+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('')+'</div>';
+  }
+
+  renderSimpleTable(document.getElementById('table_kaizen'), {
+    filename:'kaizen_log', sheetName:'Kaizen',
+    columns: k.columns.filter(c=>c!=='Picture').map(c=>({key:c,label:c})),
+    rows: rows
+  });
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 13 — Data Explorer (raw view of every uploaded sheet)
+--------------------------------------------------------------------- */
+const ROLE_LABELS = {
+  gpu_srav:'GPU Serviceability & Availability', pca_srav:'PCA Serviceability & Availability', pbb_srav:'PBB Serviceability & Availability',
+  gpu_uptime:'GPU Uptime', pca_uptime:'PCA Uptime', pbb_uptime:'PBB Uptime',
+  airline_complaints:'Airline Complaints', major_breakdown:'Major Complaint / Breakdown', pbb_breakdown:'PBB Complaints / Breakdown',
+  inventory:'Removed Item Inventory', kaizen:'Kaizen / Improvement Activities', usage:'Usage Summary', performance:'Operator Performance',
+  equip_srav_unknown:'Serviceability & Availability (type unclear)', unknown:'Not automatically recognised'
+};
+
+function renderExplorer(){
+  const view = $('#view-explorer');
+  const names = Object.keys(APP.data.raw);
+  view.innerHTML = `
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-table"></i>Data Explorer</div><div class="rd-line"></div></div>
+    <div class="panel">
+      <div class="panel-head">
+        <div><h6>Raw worksheet viewer</h6><div class="ph-sub">Every sheet from the uploaded workbook, exactly as read</div></div>
+        <select class="form-control-dark" id="explorerSelect"></select>
+      </div>
+      <div class="panel-body p-0" id="explorerTableWrap"></div>
+    </div>
+  `;
+  const sel = document.getElementById('explorerSelect');
+  sel.innerHTML = names.map(n=> '<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+' — '+escapeHtml(ROLE_LABELS[APP.data.raw[n].role]||n)+'</option>').join('');
+  function draw(){
+    const name = sel.value;
+    const rows = APP.sheets[name]||[];
+    const parsed = parseGenericTable(rows);
+    const wrap = document.getElementById('explorerTableWrap');
+    if(!parsed.columns.length){ wrap.innerHTML='<div class="p-3 text-muted-2">Sheet appears empty.</div>'; return; }
+    renderSimpleTable(wrap, {
+      filename:name.replace(/[^a-z0-9]+/gi,'_'), sheetName:name.substring(0,31),
+      columns: parsed.columns.map((c,i)=>({key:c, label:c||('Col '+i)})),
+      rows: parsed.rows
+    });
+  }
+  sel.addEventListener('change', draw);
+  if(names.length) draw();
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 14 — KPI Formula Settings
+--------------------------------------------------------------------- */
+function renderSettings(){
+  const view = $('#view-settings');
+  const s = APP.settings;
+  view.innerHTML = `
+    <div class="runway-divider"><div class="rd-label"><i class="bi bi-sliders"></i>KPI Formula Settings</div><div class="rd-line"></div></div>
+
+    <div class="panel">
+      <div class="panel-head"><div><h6>Standard formulas</h6><div class="ph-sub">Applied to every GPU / PCA / PBB Serviceability &amp; Availability sheet</div></div></div>
+      <div class="panel-body">
+        <div class="mono" style="font-size:.82rem;line-height:1.9;background:var(--bg-surface-2);padding:.9rem 1.1rem;border-radius:8px;">
+          Availability &nbsp;=&nbsp; ( (Total Running Hours &times; Units) &minus; Breakdown Hours ) / (Total Running Hours &times; Units)<br>
+          Serviceability &nbsp;=&nbsp; ( (Total Running Hours &times; Units) &minus; (PM Hours + Breakdown Hours) ) / (Total Running Hours &times; Units)
+        </div>
+        <p class="text-muted-2" style="font-size:.8rem;margin-top:.8rem;margin-bottom:0;">
+          When a sheet includes its own <span class="mono">PM Time</span> / <span class="mono">Down Time</span> footer rows, those figures are used directly.
+          When a sheet only records total downtime per stand per day (no PM/breakdown split), the assumption below is applied.
+        </p>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Assumptions</h6></div></div>
+      <div class="panel-body">
+        <div class="settings-row">
+          <div><div class="sr-label">Planned-maintenance share of unexplained downtime</div>
+            <div class="sr-sub">If a sheet has no separate PM/breakdown split, this % of total downtime is treated as planned maintenance when computing Serviceability. The remainder counts as breakdown.</div></div>
+          <div style="display:flex;align-items:center;gap:.6rem;">
+            <input type="range" min="0" max="100" step="5" id="pmRatioRange" value="${Math.round(s.pmRatioWhenMissing*100)}" style="width:160px;">
+            <span class="mono" id="pmRatioLabel" style="width:3.2rem;text-align:right;">${Math.round(s.pmRatioWhenMissing*100)}%</span>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div><div class="sr-label">Major Complaint / Breakdown — downtime column unit</div>
+            <div class="sr-sub">This workbook's "UNIT DOWNTIME(Mins)" column is labelled minutes, but the recorded values reconcile against the logged time windows as <em>hours</em>. Override if a future upload genuinely uses minutes.</div></div>
+          <select class="form-control-dark" id="majorUnitSelect">
+            <option value="hours" ${s.downtimeUnitMajor==='hours'?'selected':''}>Hours (recommended — auto-detected)</option>
+            <option value="minutes" ${s.downtimeUnitMajor==='minutes'?'selected':''}>Minutes (column header, literal)</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div><div class="sr-label">Healthy threshold</div><div class="sr-sub">Availability / Serviceability at or above this is shown green.</div></div>
+          <div style="display:flex;align-items:center;gap:.5rem;"><input type="number" step="0.1" min="0" max="100" class="form-control-dark" id="okThreshInput" value="${(s.warnAvailabilityThreshold*100).toFixed(1)}" style="width:90px;"><span class="text-muted-2">%</span></div>
+        </div>
+        <div class="settings-row">
+          <div><div class="sr-label">Warning threshold</div><div class="sr-sub">Below this, tiles and charts flag red as critical.</div></div>
+          <div style="display:flex;align-items:center;gap:.5rem;"><input type="number" step="0.1" min="0" max="100" class="form-control-dark" id="warnThreshInput" value="${(s.lowAvailabilityThreshold*100).toFixed(1)}" style="width:90px;"><span class="text-muted-2">%</span></div>
+        </div>
+        <div class="settings-row">
+          <div><div class="sr-label">Apply changes</div><div class="sr-sub">Recomputes every KPI and chart in this dashboard with the settings above.</div></div>
+          <button class="btn-runway" id="btnApplySettings"><i class="bi bi-arrow-repeat"></i> Recalculate</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:1rem;">
+      <div class="panel-head"><div><h6>Workbook</h6></div></div>
+      <div class="panel-body">
+        <div class="text-muted-2" style="font-size:.82rem;">
+          <strong>${APP.workbookName? escapeHtml(APP.workbookName):'No file loaded'}</strong><br>
+          ${APP.uploadedAt? 'Loaded '+APP.uploadedAt.toLocaleString():''}<br>
+          ${Object.keys(APP.sheets||{}).length} worksheet(s) read &middot; ${APP.data.unmatched.length} unrecognised
+        </div>
+      </div>
+    </div>
+  `;
+
+  const range = document.getElementById('pmRatioRange');
+  range.addEventListener('input', ()=> document.getElementById('pmRatioLabel').textContent = range.value+'%');
+  document.getElementById('btnApplySettings').addEventListener('click', ()=>{
+    APP.settings.pmRatioWhenMissing = (+range.value)/100;
+    APP.settings.downtimeUnitMajor = document.getElementById('majorUnitSelect').value;
+    const okV = parseFloat(document.getElementById('okThreshInput').value)/100;
+    const warnV = parseFloat(document.getElementById('warnThreshInput').value)/100;
+    if(!isNaN(okV)) APP.settings.warnAvailabilityThreshold = okV;
+    if(!isNaN(warnV)) APP.settings.lowAvailabilityThreshold = warnV;
+    parseAllSheets();
+    renderAllViews();
+    showToast('KPIs recalculated with updated settings','ok');
+  });
+}
+
+/* ---------------------------------------------------------------------
+   SECTION 15 — Navigation, theme, upload, bootstrap
+--------------------------------------------------------------------- */
+const VIEW_META = {
+  'view-executive':{title:'Executive Summary', sub:'Fleet-wide KPI snapshot for the reporting period'},
+  'view-gpu':{title:'GPU Monitoring', sub:'Ground Power Unit serviceability & availability'},
+  'view-pca':{title:'PCA Monitoring', sub:'Pre-Conditioned Air unit serviceability & availability'},
+  'view-pbb':{title:'PBB Monitoring', sub:'Passenger Boarding Bridge serviceability & availability'},
+  'view-complaints':{title:'Complaint Analytics', sub:'Airline complaint patterns & resolution'},
+  'view-breakdowns':{title:'Breakdown Dashboard', sub:'Maintenance events, MTTR & open issues'},
+  'view-usage':{title:'Usage Analysis', sub:'GPU/PCA utilisation vs flights handled'},
+  'view-operators':{title:'Operator Performance', sub:'BME operator scorecards & ranking'},
+  'view-inventory':{title:'Inventory Dashboard', sub:'Removed parts & component reliability'},
+  'view-kaizen':{title:'Kaizen Tracker', sub:'Continuous-improvement activity log'},
+  'view-explorer':{title:'Data Explorer', sub:'Every worksheet, exactly as uploaded'},
+  'view-settings':{title:'KPI Formula Settings', sub:'Configure serviceability & availability assumptions'}
+};
+
+const RENDERERS = {
+  'view-executive': renderExecutive,
+  'view-gpu': ()=> renderEquipmentSection('view-gpu', APP.data.roles.gpu, 'GPU', 'bi-lightning-charge'),
+  'view-pca': ()=> renderEquipmentSection('view-pca', APP.data.roles.pca, 'PCA', 'bi-snow'),
+  'view-pbb': ()=> renderEquipmentSection('view-pbb', APP.data.roles.pbb, 'PBB', 'bi-diagram-3'),
+  'view-complaints': renderComplaints,
+  'view-breakdowns': renderBreakdowns,
+  'view-usage': renderUsage,
+  'view-operators': renderOperators,
+  'view-inventory': renderInventory,
+  'view-kaizen': renderKaizen,
+  'view-explorer': renderExplorer,
+  'view-settings': renderSettings
+};
+
+function renderAllViews(){
+  Object.keys(RENDERERS).forEach(id=>{
+    try{ RENDERERS[id](); }
+    catch(e){ console.error('Render error in', id, e); $('#'+id).innerHTML = '<div class="panel"><div class="panel-body text-muted-2">Could not render this section (see console for details).</div></div>'; }
+  });
+  updateFileChip();
+}
+
+function switchView(viewId){
+  $all('.nav-item').forEach(n=> n.classList.toggle('active', n.dataset.view===viewId));
+  $all('.view').forEach(v=> v.classList.toggle('active', v.id===viewId));
+  const meta = VIEW_META[viewId];
+  if(meta){ $('#topbarTitle').textContent = meta.title; $('#topbarSub').textContent = meta.sub; }
+  if(window.innerWidth<=960) $('#sidebar').classList.remove('open');
+}
+
+function updateFileChip(){
+  const chip = $('#fileChip');
+  if(APP.workbookName){
+    chip.style.display='flex';
+    $('#fileChipName').textContent = APP.workbookName;
+    chip.title = 'Loaded '+APP.uploadedAt.toLocaleString();
+  }
+}
+
+function setTheme(theme){
+  APP.theme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  $('#themeToggle').innerHTML = theme==='dark'? '<i class="bi bi-sun"></i>' : '<i class="bi bi-moon-stars"></i>';
+  if(APP.workbookName) renderAllViews(); // re-render so charts pick up new grid/text colors
+}
+
+function handleFile(file){
+  if(!file) return;
+  if(!/\.(xlsx|xls)$/i.test(file.name)){ showToast('Please upload a .xlsx or .xls file','crit'); return; }
+  const reader = new FileReader();
+  showToast('Reading '+file.name+'…','info');
+  reader.onload = function(e){
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array', cellDates:true});
+      processWorkbook(wb, file.name);
+      $('#emptyStateWrap').style.display='none';
+      $('#dashboardWrap').style.display='block';
+      renderAllViews();
+      showToast('Workbook parsed — '+Object.keys(APP.sheets).length+' sheet(s) loaded','ok');
+      if(APP.data.unmatched.length) showToast(APP.data.unmatched.length+' sheet(s) not auto-recognised — check Data Explorer','warn');
+    }catch(err){
+      console.error(err);
+      showToast('Could not read that workbook: '+err.message,'crit');
+    }
+  };
+  reader.onerror = function(){ showToast('Failed to read file','crit'); };
+  reader.readAsArrayBuffer(file);
+}
+
+function initApp(){
+  // guard against a blocked/failed CDN so failures are legible rather than a silent crash
+  const missing = [];
+  if(typeof XLSX==='undefined') missing.push('SheetJS (xlsx)');
+  if(typeof Chart==='undefined') missing.push('Chart.js');
+  if(typeof bootstrap==='undefined') missing.push('Bootstrap');
+  if(missing.length){
+    document.body.innerHTML = '<div style="max-width:560px;margin:4rem auto;padding:1.6rem;font-family:sans-serif;background:#16304f;color:#eef2f7;border-radius:12px;">'+
+      '<h4 style="margin-top:0;">Couldn\'t load required libraries</h4>'+
+      '<p>This dashboard loads '+missing.join(', ')+' from a CDN (cdnjs.cloudflare.com), and the request was blocked or failed — often an ad-blocker, offline mode, or a restricted network.</p>'+
+      '<p>Try disabling any content blocker for this page, confirm you have an internet connection, then reload.</p></div>';
+    return;
+  }
+
+  // sidebar nav
+  $all('.nav-item').forEach(item=> item.addEventListener('click', ()=> switchView(item.dataset.view)));
+  $('#sidebarToggle').addEventListener('click', ()=> $('#sidebar').classList.toggle('open'));
+
+  // theme
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  setTheme(prefersDark===false ? 'light' : 'dark');
+  $('#themeToggle').addEventListener('click', ()=> setTheme(APP.theme==='dark'?'light':'dark'));
+
+  // upload
+  const fileInput = $('#fileInput');
+  $('#btnUploadTop').addEventListener('click', ()=> fileInput.click());
+  $('#dropzone').addEventListener('click', ()=> fileInput.click());
+  fileInput.addEventListener('change', e=> handleFile(e.target.files[0]));
+
+  const dz = $('#dropzone');
+  ['dragenter','dragover'].forEach(ev=> dz.addEventListener(ev, e=>{ e.preventDefault(); dz.classList.add('dragover'); }));
+  ['dragleave','drop'].forEach(ev=> dz.addEventListener(ev, e=>{ e.preventDefault(); dz.classList.remove('dragover'); }));
+  dz.addEventListener('drop', e=>{ const f = e.dataTransfer.files[0]; handleFile(f); });
+  document.body.addEventListener('dragover', e=> e.preventDefault());
+  document.body.addEventListener('drop', e=>{ if(e.target.closest('#dropzone')) return; e.preventDefault(); });
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  (window.__libsReady || Promise.resolve()).catch(function(){}).then(initApp);
+});
+
+
+})();
+</script>
+</body>
+</html>
