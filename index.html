@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GSE Operations KPI Dashboard</title>
+<title>GEMS Operations KPI Dashboard</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -429,6 +429,19 @@ table.simple-table tbody tr:hover td{background:var(--bg-surface-2);color:var(--
 .text-muted-2{color:var(--text-muted);}
 .mono{font-family:var(--font-mono);}
 hr.soft{border-color:var(--border-soft);}
+
+@media print{
+  .sidebar, .topbar, .no-print{ display:none !important; }
+  .main-col{ margin-left:0 !important; }
+  .main-content{ padding:0 !important; }
+  body{ background:#fff !important; color:#111 !important; }
+  .panel{ box-shadow:none !important; border:1px solid #ccc !important; break-inside:avoid; }
+  .kpi-tile{ break-inside:avoid; }
+  .row-charts{ break-inside:avoid; }
+  .view{ display:none !important; }
+  .view#view-summary{ display:block !important; }
+  .table-scroll{ max-height:none !important; overflow:visible !important; }
+}
 </style>
 </head>
 <body>
@@ -440,11 +453,14 @@ hr.soft{border-color:var(--border-soft);}
     <div class="sidebar-brand">
       <div class="brand-mark"></div>
       <div class="brand-text">
-        <div class="t1">GSE OPS</div>
+        <div class="t1">GEMS OPS</div>
         <div class="t2">KPI Dashboard</div>
       </div>
     </div>
     <nav class="sidebar-nav" id="sidebarNav">
+      <div class="nav-group-label">Reports</div>
+      <div class="nav-item" data-view="view-summary"><i class="bi bi-journal-richtext"></i>Summary Report<span class="nav-badge">All</span></div>
+
       <div class="nav-group-label">Overview</div>
       <div class="nav-item active" data-view="view-executive"><i class="bi bi-speedometer2"></i>Executive Summary</div>
 
@@ -470,7 +486,7 @@ hr.soft{border-color:var(--border-soft);}
       <div class="nav-item" data-view="view-settings"><i class="bi bi-sliders"></i>KPI Formula Settings</div>
     </nav>
     <div class="sidebar-foot">
-      Airport GSE Ops &middot; Client-side analysis<br>No data leaves this browser.
+      Airport GEMS Ops &middot; Client-side analysis<br>No data leaves this browser.
     </div>
   </aside>
 
@@ -503,7 +519,7 @@ hr.soft{border-color:var(--border-soft);}
           <div class="dz-icon" style="width:64px;height:64px;border-radius:16px;margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;background:rgba(46,143,240,0.12);color:var(--signal-blue);font-size:1.8rem;">
             <i class="bi bi-cloud-arrow-up"></i>
           </div>
-          <h4>Load this month's GSE KPI workbook</h4>
+          <h4>Load this month's GEMS KPI workbook</h4>
           <p class="text-muted-2">Drop the monthly Excel export below. Sheets are detected automatically &mdash; GPU/PCA/PBB uptime &amp; serviceability, complaints, breakdowns, usage, operator performance, inventory and Kaizen logs.</p>
         </div>
         <div class="dropzone" id="dropzone" style="max-width:640px;margin:0 auto;">
@@ -530,6 +546,7 @@ hr.soft{border-color:var(--border-soft);}
       <!-- ============ DASHBOARD VIEWS (hidden until data loaded) ============ -->
       <div id="dashboardWrap" style="display:none;">
 
+        <div class="view" id="view-summary"></div>
         <div class="view active" id="view-executive"></div>
         <div class="view" id="view-gpu"></div>
         <div class="view" id="view-pca"></div>
@@ -552,7 +569,7 @@ hr.soft{border-color:var(--border-soft);}
 
 <script>
 /* =====================================================================
-   GSE OPERATIONS KPI DASHBOARD — application script
+   GEMS OPERATIONS KPI DASHBOARD — application script
    Single-file, client-side only. No data ever leaves the browser.
    ===================================================================== */
 (function(){
@@ -1379,40 +1396,42 @@ function kpiTileHtml(o){
   '</div>');
 }
 
-function renderExecutive(){
-  const view = $('#view-executive');
+function renderExecutive(viewId){
+  viewId = viewId || 'view-executive';
+  const sid = viewId.replace(/^view-/,'');
+  const view = $('#'+viewId);
   const kpi = APP.data.kpi||{};
   const d = APP.data.roles;
 
   view.innerHTML = `
     <div class="runway-divider"><div class="rd-label"><i class="bi bi-grid-1x2"></i>Fleet Overview</div><div class="rd-line"></div></div>
-    <div class="kpi-grid" id="execFleetKpis"></div>
+    <div class="kpi-grid" id="${sid}_fleetKpis"></div>
 
     <div class="runway-divider"><div class="rd-label"><i class="bi bi-shield-check"></i>Serviceability &amp; Availability</div><div class="rd-line"></div></div>
-    <div class="kpi-grid" id="execSrAvKpis"></div>
+    <div class="kpi-grid" id="${sid}_srAvKpis"></div>
 
     <div class="runway-divider"><div class="rd-label"><i class="bi bi-clipboard-data"></i>Service &amp; Utilisation</div><div class="rd-line"></div></div>
-    <div class="kpi-grid" id="execOpsKpis"></div>
+    <div class="kpi-grid" id="${sid}_opsKpis"></div>
 
     <div class="runway-divider"><div class="rd-label"><i class="bi bi-bar-chart-line"></i>Snapshot</div><div class="rd-line"></div></div>
     <div class="row-charts cols-2">
       <div class="panel">
         <div class="panel-head"><div><h6>Fleet Availability vs Serviceability</h6><div class="ph-sub">By equipment class, month to date</div></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chartExecFleet"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_${sid}_fleet"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div><h6>Daily Usage %</h6><div class="ph-sub">Share of flights served by GPU/PCA</div></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chartExecUsage"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_${sid}_usage"></canvas></div></div>
       </div>
     </div>
     <div class="row-charts cols-2" style="margin-top:1rem;">
       <div class="panel">
         <div class="panel-head"><div><h6>Complaints &amp; Breakdown Events</h6><div class="ph-sub">Daily count, whole workbook period</div></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chartExecComplaints"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_${sid}_complaints"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div><h6>Non-Usage Reasons</h6><div class="ph-sub">Why GPU/PCA weren't connected</div></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chartExecReasons"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_${sid}_reasons"></canvas></div></div>
       </div>
     </div>
     ${APP.data.unmatched.length? `
@@ -1422,13 +1441,13 @@ function renderExecutive(){
     </div></div>`:''}
   `;
 
-  $('#execFleetKpis').innerHTML = [
+  $('#'+sid+'_fleetKpis').innerHTML = [
     kpiTileHtml({label:'Total GPU Units', value:fmtNum(kpi.gpuUnits), icon:'bi-lightning-charge', color:'var(--signal-blue)', sub:'Ground Power Units tracked'}),
     kpiTileHtml({label:'Total PCA Units', value:fmtNum(kpi.pcaUnits), icon:'bi-snow', color:'var(--signal-blue)', sub:'Pre-Conditioned Air units tracked'}),
     kpiTileHtml({label:'Total PBB Units', value:fmtNum(kpi.pbbUnits), icon:'bi-diagram-3', color:'var(--signal-blue)', sub:'Passenger Boarding Bridges tracked'}),
   ].join('');
 
-  $('#execSrAvKpis').innerHTML = [
+  $('#'+sid+'_srAvKpis').innerHTML = [
     kpiTileHtml({label:'GPU Availability', value:fmtPct(kpi.gpuAvailability), icon:'bi-lightning-charge', color:'var(--runway-green)', statusRatio:kpi.gpuAvailability, sub:'Month to date'}),
     kpiTileHtml({label:'GPU Serviceability', value:fmtPct(kpi.gpuServiceability), icon:'bi-lightning-charge', color:'var(--runway-green)', statusRatio:kpi.gpuServiceability, sub:'Month to date'}),
     kpiTileHtml({label:'PCA Availability', value:fmtPct(kpi.pcaAvailability), icon:'bi-snow', color:'var(--runway-green)', statusRatio:kpi.pcaAvailability, sub:'Month to date'}),
@@ -1437,7 +1456,7 @@ function renderExecutive(){
     kpiTileHtml({label:'PBB Serviceability', value:fmtPct(kpi.pbbServiceability), icon:'bi-diagram-3', color:'var(--runway-green)', statusRatio:kpi.pbbServiceability, sub:'Month to date'}),
   ].join('');
 
-  $('#execOpsKpis').innerHTML = [
+  $('#'+sid+'_opsKpis').innerHTML = [
     kpiTileHtml({label:'Total Complaints', value:fmtNum(kpi.totalComplaints), icon:'bi-chat-square-text', color:'var(--amber-warn)', sub:'Airline + PBB logs'}),
     kpiTileHtml({label:'Major Breakdowns', value:fmtNum(kpi.majorBreakdowns), icon:'bi-tools', color:'var(--alert-red)', sub:'Logged maintenance events'}),
     kpiTileHtml({label:'Total Flights Handled', value:fmtNum(kpi.totalFlights), icon:'bi-airplane', color:'var(--signal-blue)', sub:'Sum of daily flight count'}),
@@ -1452,7 +1471,7 @@ function renderExecutive(){
     if(obj){ fleetLabels.push(label); availData.push(obj.overall.availability); servData.push(obj.overall.serviceability); }
   });
   if(fleetLabels.length){
-    createBarChart('chartExecFleet', fleetLabels, [
+    createBarChart('chart_'+sid+'_fleet', fleetLabels, [
       {label:'Availability', data:availData, color:PALETTE[0]},
       {label:'Serviceability', data:servData, color:PALETTE[1]}
     ], {pct:true, tooltipPct:true});
@@ -1460,7 +1479,7 @@ function renderExecutive(){
 
   // Usage trend
   if(d.usage && d.usage.daily.length){
-    createLineChart('chartExecUsage', d.usage.daily.map(r=>r.dateLabel.slice(0,5)), [
+    createLineChart('chart_'+sid+'_usage', d.usage.daily.map(r=>r.dateLabel.slice(0,5)), [
       {label:'Usage %', data:d.usage.daily.map(r=>r.usagePct), color:PALETTE[1], fill:true}
     ], {pct:true, tooltipPct:true, points:false});
   }
@@ -1482,7 +1501,7 @@ function renderExecutive(){
     const cCounts = sortedDays.map(k=> complaintDates.filter(dt=>dayKey(dt)===k).length);
     const bCounts = sortedDays.map(k=> breakdownDates.filter(dt=>dayKey(dt)===k).length);
     const labels = sortedDays.map(k=>{ const [y,m,dd]=k.split('-').map(Number); return fmtDate(new Date(y,m-1,dd)); });
-    createLineChart('chartExecComplaints', labels, [
+    createLineChart('chart_'+sid+'_complaints', labels, [
       {label:'Complaints', data:cCounts, color:PALETTE[3]},
       {label:'Breakdowns', data:bCounts, color:PALETTE[2]}
     ], {points:false});
@@ -1491,7 +1510,7 @@ function renderExecutive(){
   // Non-usage reasons donut
   if(d.usage && d.usage.reasons.length){
     const sorted = d.usage.reasons.slice().sort((a,b)=>(b.count||0)-(a.count||0));
-    createPieChart('chartExecReasons', sorted.map(r=>r.reason), sorted.map(r=>r.count||0));
+    createPieChart('chart_'+sid+'_reasons', sorted.map(r=>r.reason), sorted.map(r=>r.count||0));
   }
 }
 
@@ -1623,8 +1642,10 @@ function groupCount(items, keyFn){
   return Array.from(map.entries()).map(([k,v])=>({key:k,count:v})).sort((a,b)=>b.count-a.count);
 }
 
-function renderComplaints(){
-  const view = $('#view-complaints');
+function renderComplaints(viewId){
+  viewId = viewId || 'view-complaints';
+  const sid = viewId.replace(/^view-/,'');
+  const view = $('#'+viewId);
   const t = APP.data.roles.airlineComplaints;
   if(!t || !t.rows.length){
     view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No "Airline Complaints" sheet was recognised in this workbook.</div></div>';
@@ -1666,38 +1687,38 @@ function renderComplaints(){
     <div class="row-charts cols-2" style="margin-top:1.1rem;">
       <div class="panel">
         <div class="panel-head"><div><h6>Complaint Type — Pareto</h6><div class="ph-sub">Root-cause categories, ranked by frequency</div></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_complaints_pareto"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_${sid}_pareto"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div><h6>Complaint Trend</h6><div class="ph-sub">Daily count across the reporting period</div></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_complaints_trend"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_${sid}_trend"></canvas></div></div>
       </div>
     </div>
 
     <div class="row-charts cols-2" style="margin-top:1rem;">
       <div class="panel">
         <div class="panel-head"><div><h6>Complaint Type Distribution</h6></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:270px;"><canvas id="chart_complaints_type_dist"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:270px;"><canvas id="chart_${sid}_type_dist"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div><h6>Stand-wise Complaints</h6><div class="ph-sub">Top 12 stands</div></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:270px;"><canvas id="chart_complaints_by_stand"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:270px;"><canvas id="chart_${sid}_by_stand"></canvas></div></div>
       </div>
     </div>
 
     <div class="panel" style="margin-top:1rem;">
       <div class="panel-head"><div><h6>Complaint Log</h6><div class="ph-sub">Full register from the Airline Complaints sheet</div></div></div>
-      <div class="panel-body p-0" id="table_complaints"></div>
+      <div class="panel-body p-0" id="table_${sid}"></div>
     </div>
   `;
 
-  createParetoChart('chart_complaints_pareto', byType.map(x=>x.key), byType.map(x=>x.count));
-  createLineChart('chart_complaints_trend', dayLabels, [{label:'Complaints', data:dailyCounts, color:PALETTE[3], fill:true}], {points:false});
-  createPieChart('chart_complaints_type_dist', byType.map(x=>x.key), byType.map(x=>x.count));
+  createParetoChart('chart_'+sid+'_pareto', byType.map(x=>x.key), byType.map(x=>x.count));
+  createLineChart('chart_'+sid+'_trend', dayLabels, [{label:'Complaints', data:dailyCounts, color:PALETTE[3], fill:true}], {points:false});
+  createPieChart('chart_'+sid+'_type_dist', byType.map(x=>x.key), byType.map(x=>x.count));
   const topStands = byStand.slice(0,12);
-  createBarChart('chart_complaints_by_stand', topStands.map(x=>x.key), [{label:'Complaints', data:topStands.map(x=>x.count), color:PALETTE[2]}], {showLegend:false});
+  createBarChart('chart_'+sid+'_by_stand', topStands.map(x=>x.key), [{label:'Complaints', data:topStands.map(x=>x.count), color:PALETTE[2]}], {showLegend:false});
 
-  renderSimpleTable(document.getElementById('table_complaints'), {
+  renderSimpleTable(document.getElementById('table_'+sid), {
     filename:'airline_complaints', sheetName:'Complaints',
     columns: t.columns.map(c=>({key:c, label:c})),
     rows: rows
@@ -1707,8 +1728,10 @@ function renderComplaints(){
 /* ---------------------------------------------------------------------
    SECTION 8 — Breakdown Dashboard
 --------------------------------------------------------------------- */
-function renderBreakdowns(){
-  const view = $('#view-breakdowns');
+function renderBreakdowns(viewId){
+  viewId = viewId || 'view-breakdowns';
+  const sid = viewId.replace(/^view-/,'');
+  const view = $('#'+viewId);
   const major = APP.data.roles.majorBreakdown;
   const pbbBd = APP.data.roles.pbbBreakdown;
   if(!major && !pbbBd){
@@ -1750,64 +1773,66 @@ function renderBreakdowns(){
     <div class="row-charts cols-2" style="margin-top:1.1rem;">
       <div class="panel">
         <div class="panel-head"><div><h6>Breakdown Category Analysis</h6><div class="ph-sub">Major Complaint / Breakdown log</div></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_bd_category"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_${sid}_category"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div><h6>Equipment-wise Breakdown Count</h6></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_bd_equip"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_${sid}_equip"></canvas></div></div>
       </div>
     </div>
     <div class="row-charts cols-2" style="margin-top:1rem;">
       <div class="panel">
         <div class="panel-head"><div><h6>Stand-wise Breakdown Count</h6></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_bd_stand"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_${sid}_stand"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div><h6>Open vs Closed</h6></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_bd_status"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_${sid}_status"></canvas></div></div>
       </div>
     </div>
 
     <div class="panel" style="margin-top:1rem;">
       <div class="panel-head"><div><h6>Major Complaint / Breakdown Log</h6><div class="ph-sub">GPU &amp; PCA maintenance events${major? ' &middot; downtime column interpreted as '+APP.settings.downtimeUnitMajor+' (change in Settings)':''}</div></div></div>
-      <div class="panel-body p-0" id="table_bd_major"></div>
+      <div class="panel-body p-0" id="table_${sid}_major"></div>
     </div>
     <div class="panel" style="margin-top:1rem;">
       <div class="panel-head"><div><h6>PBB Breakdown Log</h6></div></div>
-      <div class="panel-body p-0" id="table_bd_pbb"></div>
+      <div class="panel-body p-0" id="table_${sid}_pbb"></div>
     </div>
   `;
 
-  createBarChart('chart_bd_category', byCategory.map(x=>x.key), [{label:'Events', data:byCategory.map(x=>x.count), color:PALETTE[3]}], {horizontal:true, showLegend:false});
-  createBarChart('chart_bd_equip', byEquip.map(x=>x.key), [{label:'Events', data:byEquip.map(x=>x.count), color:PALETTE[0]}], {showLegend:false});
-  createBarChart('chart_bd_stand', byStandMajor.slice(0,14).map(x=>x.key), [{label:'Events', data:byStandMajor.slice(0,14).map(x=>x.count), color:PALETTE[2]}], {showLegend:false});
-  createPieChart('chart_bd_status', ['Open','Closed'], [openCount, closedCount]);
+  createBarChart('chart_'+sid+'_category', byCategory.map(x=>x.key), [{label:'Events', data:byCategory.map(x=>x.count), color:PALETTE[3]}], {horizontal:true, showLegend:false});
+  createBarChart('chart_'+sid+'_equip', byEquip.map(x=>x.key), [{label:'Events', data:byEquip.map(x=>x.count), color:PALETTE[0]}], {showLegend:false});
+  createBarChart('chart_'+sid+'_stand', byStandMajor.slice(0,14).map(x=>x.key), [{label:'Events', data:byStandMajor.slice(0,14).map(x=>x.count), color:PALETTE[2]}], {showLegend:false});
+  createPieChart('chart_'+sid+'_status', ['Open','Closed'], [openCount, closedCount]);
 
   if(major){
-    renderSimpleTable(document.getElementById('table_bd_major'), {
+    renderSimpleTable(document.getElementById('table_'+sid+'_major'), {
       filename:'major_breakdown', sheetName:'Major Breakdown',
       columns: major.columns.map(c=>({key:c,label:c})),
       rows: majorRows
     });
   } else {
-    document.getElementById('table_bd_major').innerHTML = '<div class="p-3 text-muted-2">Sheet not found.</div>';
+    document.getElementById('table_'+sid+'_major').innerHTML = '<div class="p-3 text-muted-2">Sheet not found.</div>';
   }
   if(pbbBd){
-    renderSimpleTable(document.getElementById('table_bd_pbb'), {
+    renderSimpleTable(document.getElementById('table_'+sid+'_pbb'), {
       filename:'pbb_breakdown', sheetName:'PBB Breakdown',
       columns: pbbBd.columns.map(c=>({key:c,label:c})),
       rows: pbbRows
     });
   } else {
-    document.getElementById('table_bd_pbb').innerHTML = '<div class="p-3 text-muted-2">Sheet not found.</div>';
+    document.getElementById('table_'+sid+'_pbb').innerHTML = '<div class="p-3 text-muted-2">Sheet not found.</div>';
   }
 }
 
 /* ---------------------------------------------------------------------
    SECTION 9 — Usage Analysis Dashboard
 --------------------------------------------------------------------- */
-function renderUsage(){
-  const view = $('#view-usage');
+function renderUsage(viewId){
+  viewId = viewId || 'view-usage';
+  const sid = viewId.replace(/^view-/,'');
+  const view = $('#'+viewId);
   const u = APP.data.roles.usage;
   if(!u || !u.daily.length){
     view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No "Usage Summary" sheet was recognised in this workbook.</div></div>';
@@ -1833,42 +1858,42 @@ function renderUsage(){
     <div class="row-charts cols-2" style="margin-top:1.1rem;">
       <div class="panel">
         <div class="panel-head"><div><h6>Usage vs Non-Usage Trend</h6><div class="ph-sub">Daily percentage split</div></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_usage_trend"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_${sid}_trend"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div><h6>Flight Count Trend</h6></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_flight_trend"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:280px;"><canvas id="chart_${sid}_flights"></canvas></div></div>
       </div>
     </div>
     <div class="row-charts cols-2" style="margin-top:1rem;">
       <div class="panel">
         <div class="panel-head"><div><h6>Reason-wise Non-Usage Analysis</h6></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_reason_pie"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_${sid}_reason_pie"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div><h6>Non-Usage Reasons — Ranked</h6></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_reason_bar"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:290px;"><canvas id="chart_${sid}_reason_bar"></canvas></div></div>
       </div>
     </div>
 
     <div class="panel" style="margin-top:1rem;">
       <div class="panel-head"><div><h6>Daily Usage Log</h6></div></div>
-      <div class="panel-body p-0" id="table_usage"></div>
+      <div class="panel-body p-0" id="table_${sid}"></div>
     </div>
   `;
 
-  createLineChart('chart_usage_trend', labels, [
+  createLineChart('chart_'+sid+'_trend', labels, [
     {label:'Usage %', data:u.daily.map(r=>r.usagePct), color:PALETTE[1], fill:true},
     {label:'Non-Usage %', data:u.daily.map(r=>r.nonUsagePct), color:PALETTE[2]}
   ], {pct:true, tooltipPct:true, points:false});
 
-  createBarChart('chart_flight_trend', labels, [{label:'Flights', data:u.daily.map(r=>r.flights), color:PALETTE[0]}], {showLegend:false});
+  createBarChart('chart_'+sid+'_flights', labels, [{label:'Flights', data:u.daily.map(r=>r.flights), color:PALETTE[0]}], {showLegend:false});
 
   const reasonsSorted = u.reasons.slice().sort((a,b)=>(b.count||0)-(a.count||0));
-  createPieChart('chart_reason_pie', reasonsSorted.map(r=>r.reason), reasonsSorted.map(r=>r.count||0));
-  createBarChart('chart_reason_bar', reasonsSorted.map(r=>r.reason), [{label:'Occurrences', data:reasonsSorted.map(r=>r.count||0), color:PALETTE[4]}], {horizontal:true, showLegend:false});
+  createPieChart('chart_'+sid+'_reason_pie', reasonsSorted.map(r=>r.reason), reasonsSorted.map(r=>r.count||0));
+  createBarChart('chart_'+sid+'_reason_bar', reasonsSorted.map(r=>r.reason), [{label:'Occurrences', data:reasonsSorted.map(r=>r.count||0), color:PALETTE[4]}], {horizontal:true, showLegend:false});
 
-  renderSimpleTable(document.getElementById('table_usage'), {
+  renderSimpleTable(document.getElementById('table_'+sid), {
     filename:'usage_summary', sheetName:'Usage',
     columns:[
       {key:'dateLabel', label:'Date'},
@@ -1885,8 +1910,10 @@ function renderUsage(){
 /* ---------------------------------------------------------------------
    SECTION 10 — Operator Performance Dashboard
 --------------------------------------------------------------------- */
-function renderOperators(){
-  const view = $('#view-operators');
+function renderOperators(viewId){
+  viewId = viewId || 'view-operators';
+  const sid = viewId.replace(/^view-/,'');
+  const view = $('#'+viewId);
   const p = APP.data.roles.performance;
   if(!p || !p.operators.length){
     view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No "Operator Performance Report" sheet was recognised in this workbook.</div></div>';
@@ -1917,38 +1944,38 @@ function renderOperators(){
     <div class="row-charts cols-2" style="margin-top:1.1rem;">
       <div class="panel">
         <div class="panel-head"><div><h6>Top 10 Operators by Usage %</h6></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_op_top10"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_${sid}_top10"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div><h6>Flights Handled per Operator</h6><div class="ph-sub">Top 10 by volume</div></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_op_flights"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_${sid}_flights"></canvas></div></div>
       </div>
     </div>
 
     <div class="panel" style="margin-top:1rem;">
       <div class="panel-head"><div><h6>Usage vs Non-Usage — Operator Ranking</h6></div></div>
-      <div class="panel-body"><div class="chart-box" style="height:${Math.max(240,Math.min(active.length,30)*20)}px;"><canvas id="chart_op_ranking"></canvas></div></div>
+      <div class="panel-body"><div class="chart-box" style="height:${Math.max(240,Math.min(active.length,30)*20)}px;"><canvas id="chart_${sid}_ranking"></canvas></div></div>
     </div>
 
     <div class="runway-divider"><div class="rd-label"><i class="bi bi-award"></i>Operator Scorecard — Top 5</div><div class="rd-line"></div></div>
-    <div style="display:grid;gap:.6rem;" id="op_scorecards"></div>
+    <div style="display:grid;gap:.6rem;" id="${sid}_scorecards"></div>
 
     <div class="panel" style="margin-top:1.2rem;">
       <div class="panel-head"><div><h6>Operator Performance Report</h6><div class="ph-sub">Full register</div></div></div>
-      <div class="panel-body p-0" id="table_operators"></div>
+      <div class="panel-body p-0" id="table_${sid}"></div>
     </div>
   `;
 
-  createBarChart('chart_op_top10', top10.map(r=>r['OPERATOR NAME']), [{label:'Usage %', data:top10.map(r=>get(r,['USAGE %'])), color:PALETTE[1]}], {horizontal:true, pct:true, tooltipPct:true, showLegend:false});
-  createBarChart('chart_op_flights', byFlights.map(r=>r['OPERATOR NAME']), [{label:'Flights', data:byFlights.map(r=>get(r,['TOTAL FLIGHTS'])), color:PALETTE[0]}], {horizontal:true, showLegend:false});
+  createBarChart('chart_'+sid+'_top10', top10.map(r=>r['OPERATOR NAME']), [{label:'Usage %', data:top10.map(r=>get(r,['USAGE %'])), color:PALETTE[1]}], {horizontal:true, pct:true, tooltipPct:true, showLegend:false});
+  createBarChart('chart_'+sid+'_flights', byFlights.map(r=>r['OPERATOR NAME']), [{label:'Flights', data:byFlights.map(r=>get(r,['TOTAL FLIGHTS'])), color:PALETTE[0]}], {horizontal:true, showLegend:false});
 
   const rankSlice = ranked.slice(0, Math.min(active.length,30));
-  createBarChart('chart_op_ranking', rankSlice.map(r=>r['OPERATOR NAME']), [
+  createBarChart('chart_'+sid+'_ranking', rankSlice.map(r=>r['OPERATOR NAME']), [
     {label:'Usage %', data:rankSlice.map(r=>get(r,['USAGE %'])), color:PALETTE[1]},
     {label:'Non-Usage %', data:rankSlice.map(r=>get(r,['NON USAGE %'])), color:PALETTE[3]}
   ], {horizontal:true, pct:true, tooltipPct:true, stacked:true});
 
-  const scWrap = document.getElementById('op_scorecards');
+  const scWrap = document.getElementById(sid+'_scorecards');
   scWrap.innerHTML = ranked.slice(0,5).map((r,i)=>{
     const usage = get(r,['USAGE %'])||0;
     const color = usage>=0.85?'var(--runway-green)':usage>=0.7?'var(--amber-warn)':'var(--alert-red)';
@@ -1963,7 +1990,7 @@ function renderOperators(){
     '</div>';
   }).join('');
 
-  renderSimpleTable(document.getElementById('table_operators'), {
+  renderSimpleTable(document.getElementById('table_'+sid), {
     filename:'operator_performance', sheetName:'Operators',
     columns: p.header.map(h=>({key:h, label:h, fmt: /%\s*$/.test(h.trim()) ? v=>fmtPct(v):undefined })),
     rows: all
@@ -1973,8 +2000,10 @@ function renderOperators(){
 /* ---------------------------------------------------------------------
    SECTION 11 — Inventory Dashboard (Removed Item List)
 --------------------------------------------------------------------- */
-function renderInventory(){
-  const view = $('#view-inventory');
+function renderInventory(viewId){
+  viewId = viewId || 'view-inventory';
+  const sid = viewId.replace(/^view-/,'');
+  const view = $('#'+viewId);
   const inv = APP.data.roles.inventory;
   if(!inv || !inv.rows.length){
     view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No "Removed Item Inventory" sheet was recognised in this workbook.</div></div>';
@@ -2012,31 +2041,31 @@ function renderInventory(){
     <div class="row-charts cols-2" style="margin-top:1.1rem;">
       <div class="panel">
         <div class="panel-head"><div><h6>Frequent Component Failures</h6><div class="ph-sub">Top 12 most-replaced parts</div></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_inv_top"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_${sid}_top"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div><h6>Inventory by Source Unit</h6></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_inv_unit"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:300px;"><canvas id="chart_${sid}_unit"></canvas></div></div>
       </div>
     </div>
     ${monthLabels.length>1? `
     <div class="panel" style="margin-top:1rem;">
       <div class="panel-head"><div><h6>Component Replacement Trend</h6><div class="ph-sub">Removals per month, where a date was recorded</div></div></div>
-      <div class="panel-body"><div class="chart-box" style="height:240px;"><canvas id="chart_inv_trend"></canvas></div></div>
+      <div class="panel-body"><div class="chart-box" style="height:240px;"><canvas id="chart_${sid}_trend"></canvas></div></div>
     </div>`:''}
 
     <div class="panel" style="margin-top:1rem;">
       <div class="panel-head"><div><h6>Removed Item Register</h6></div></div>
-      <div class="panel-body p-0" id="table_inventory"></div>
+      <div class="panel-body p-0" id="table_${sid}"></div>
     </div>
   `;
 
   const top12 = itemRanked.slice(0,12);
-  createBarChart('chart_inv_top', top12.map(x=>x.key), [{label:'Qty removed', data:top12.map(x=>x.count), color:PALETTE[2]}], {horizontal:true, showLegend:false});
-  createPieChart('chart_inv_unit', byUnit.slice(0,8).map(x=>x.key), byUnit.slice(0,8).map(x=>x.count));
-  if(monthLabels.length>1) createLineChart('chart_inv_trend', monthLabels, [{label:'Removals', data:monthCounts, color:PALETTE[0], fill:true}], {points:true});
+  createBarChart('chart_'+sid+'_top', top12.map(x=>x.key), [{label:'Qty removed', data:top12.map(x=>x.count), color:PALETTE[2]}], {horizontal:true, showLegend:false});
+  createPieChart('chart_'+sid+'_unit', byUnit.slice(0,8).map(x=>x.key), byUnit.slice(0,8).map(x=>x.count));
+  if(monthLabels.length>1) createLineChart('chart_'+sid+'_trend', monthLabels, [{label:'Removals', data:monthCounts, color:PALETTE[0], fill:true}], {points:true});
 
-  renderSimpleTable(document.getElementById('table_inventory'), {
+  renderSimpleTable(document.getElementById('table_'+sid), {
     filename:'removed_items', sheetName:'Inventory',
     columns: inv.columns.map(c=>({key:c,label:c})),
     rows: rows
@@ -2046,8 +2075,10 @@ function renderInventory(){
 /* ---------------------------------------------------------------------
    SECTION 12 — Kaizen / Improvement Dashboard
 --------------------------------------------------------------------- */
-function renderKaizen(){
-  const view = $('#view-kaizen');
+function renderKaizen(viewId){
+  viewId = viewId || 'view-kaizen';
+  const sid = viewId.replace(/^view-/,'');
+  const view = $('#'+viewId);
   const k = APP.data.roles.kaizen;
   if(!k || !k.rows.length){
     view.innerHTML = '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No "Kaizen / Improvement Activities" sheet was recognised in this workbook.</div></div>';
@@ -2071,29 +2102,29 @@ function renderKaizen(){
     <div class="row-charts cols-2" style="margin-top:1.1rem;">
       <div class="panel">
         <div class="panel-head"><div><h6>Kaizen Status</h6></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_kaizen_status"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_${sid}_status"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="panel-head"><div><h6>Improvements by Equipment</h6></div></div>
-        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_kaizen_unit"></canvas></div></div>
+        <div class="panel-body"><div class="chart-box" style="height:260px;"><canvas id="chart_${sid}_unit"></canvas></div></div>
       </div>
     </div>
 
     <div class="panel" style="margin-top:1rem;">
       <div class="panel-head"><div><h6>Implementation Timeline</h6></div></div>
-      <div class="panel-body" id="kaizen_timeline"></div>
+      <div class="panel-body" id="${sid}_timeline"></div>
     </div>
 
     <div class="panel" style="margin-top:1rem;">
       <div class="panel-head"><div><h6>Improvement Tracker — Full Log</h6></div></div>
-      <div class="panel-body p-0" id="table_kaizen"></div>
+      <div class="panel-body p-0" id="table_${sid}"></div>
     </div>
   `;
 
-  createPieChart('chart_kaizen_status', ['Implemented','Pending'], [implemented.length, pending]);
-  createBarChart('chart_kaizen_unit', byUnit.map(x=>x.key), [{label:'Count', data:byUnit.map(x=>x.count), color:PALETTE[0]}], {showLegend:false});
+  createPieChart('chart_'+sid+'_status', ['Implemented','Pending'], [implemented.length, pending]);
+  createBarChart('chart_'+sid+'_unit', byUnit.map(x=>x.key), [{label:'Count', data:byUnit.map(x=>x.count), color:PALETTE[0]}], {showLegend:false});
 
-  const tl = document.getElementById('kaizen_timeline');
+  const tl = document.getElementById(sid+'_timeline');
   if(rows.length){
     tl.innerHTML = '<div style="display:flex;flex-direction:column;gap:.6rem;">'+rows.map(r=>{
       const done = cellStr(get(r,['Date of Implementation']))!=='';
@@ -2108,7 +2139,7 @@ function renderKaizen(){
     }).join('')+'</div>';
   }
 
-  renderSimpleTable(document.getElementById('table_kaizen'), {
+  renderSimpleTable(document.getElementById('table_'+sid), {
     filename:'kaizen_log', sheetName:'Kaizen',
     columns: k.columns.filter(c=>c!=='Picture').map(c=>({key:c,label:c})),
     rows: rows
@@ -2244,7 +2275,68 @@ function renderSettings(){
 /* ---------------------------------------------------------------------
    SECTION 15 — Navigation, theme, upload, bootstrap
 --------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------
+   SECTION 14b — Summary Report (everything on one scrollable page)
+--------------------------------------------------------------------- */
+function renderSummary(){
+  const view = $('#view-summary');
+  const d = APP.data.roles;
+
+  const sections = [
+    {id:'summary-exec',       icon:'bi-speedometer2',      title:'Executive Summary',      has:true},
+    {id:'summary-gpu',        icon:'bi-lightning-charge',  title:'GPU Monitoring',         has:!!d.gpu},
+    {id:'summary-pca',        icon:'bi-snow',              title:'PCA Monitoring',         has:!!d.pca},
+    {id:'summary-pbb',        icon:'bi-diagram-3',         title:'PBB Monitoring',         has:!!d.pbb},
+    {id:'summary-complaints', icon:'bi-chat-square-text',  title:'Complaint Analytics',    has:!!d.airlineComplaints},
+    {id:'summary-breakdowns', icon:'bi-tools',             title:'Breakdown Dashboard',    has:!!(d.majorBreakdown||d.pbbBreakdown)},
+    {id:'summary-usage',      icon:'bi-pie-chart',         title:'Usage Analysis',         has:!!d.usage},
+    {id:'summary-operators',  icon:'bi-person-badge',      title:'Operator Performance',   has:!!d.performance},
+    {id:'summary-inventory',  icon:'bi-box-seam',          title:'Inventory Dashboard',    has:!!d.inventory},
+    {id:'summary-kaizen',     icon:'bi-lightbulb',         title:'Kaizen Tracker',         has:!!d.kaizen}
+  ];
+
+  view.innerHTML = `
+    <div class="panel" id="summaryPrintHead" style="margin-bottom:1.2rem;">
+      <div class="panel-body" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <div style="flex:1;min-width:220px;">
+          <h4 class="font-display" style="margin:0;">GEMS Operations — Monthly Summary Report</h4>
+          <div class="text-muted-2" style="font-size:.82rem;margin-top:.2rem;">
+            ${APP.workbookName? escapeHtml(APP.workbookName):'—'} &middot; generated ${new Date().toLocaleString()}
+          </div>
+        </div>
+        <button class="btn-runway no-print" id="btnPrintSummary"><i class="bi bi-printer"></i> Print / Save as PDF</button>
+      </div>
+      <div class="panel-body" style="padding-top:0;">
+        <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
+          ${sections.map(s=> `<a href="#${s.id}" class="badge-soft ${s.has?'info':'neu'}" style="text-decoration:none;">${s.has?'<i class="bi bi-check-circle"></i>':'<i class="bi bi-dash-circle"></i>'} ${escapeHtml(s.title)}</a>`).join('')}
+        </div>
+      </div>
+    </div>
+    ${sections.map(s=> `
+      <div id="${s.id}" style="scroll-margin-top:80px;">
+        <div class="runway-divider" style="margin-top:2.2rem;"><div class="rd-label"><i class="bi ${s.icon}"></i>${s.title}</div><div class="rd-line"></div></div>
+        <div id="view-${s.id}">${s.has? '' : '<div class="panel"><div class="panel-body text-muted-2"><i class="bi bi-info-circle me-2"></i>No matching sheet was found in this workbook for this section.</div></div>'}</div>
+      </div>
+    `).join('')}
+  `;
+
+  renderExecutive('view-summary-exec');
+  if(d.gpu) renderEquipmentSection('view-summary-gpu', d.gpu, 'GPU', 'bi-lightning-charge');
+  if(d.pca) renderEquipmentSection('view-summary-pca', d.pca, 'PCA', 'bi-snow');
+  if(d.pbb) renderEquipmentSection('view-summary-pbb', d.pbb, 'PBB', 'bi-diagram-3');
+  if(d.airlineComplaints) renderComplaints('view-summary-complaints');
+  if(d.majorBreakdown||d.pbbBreakdown) renderBreakdowns('view-summary-breakdowns');
+  if(d.usage) renderUsage('view-summary-usage');
+  if(d.performance) renderOperators('view-summary-operators');
+  if(d.inventory) renderInventory('view-summary-inventory');
+  if(d.kaizen) renderKaizen('view-summary-kaizen');
+
+  const printBtn = document.getElementById('btnPrintSummary');
+  if(printBtn) printBtn.addEventListener('click', ()=> window.print());
+}
+
 const VIEW_META = {
+  'view-summary':{title:'Summary Report', sub:'Every section of this dashboard, on one page'},
   'view-executive':{title:'Executive Summary', sub:'Fleet-wide KPI snapshot for the reporting period'},
   'view-gpu':{title:'GPU Monitoring', sub:'Ground Power Unit serviceability & availability'},
   'view-pca':{title:'PCA Monitoring', sub:'Pre-Conditioned Air unit serviceability & availability'},
@@ -2260,6 +2352,7 @@ const VIEW_META = {
 };
 
 const RENDERERS = {
+  'view-summary': renderSummary,
   'view-executive': renderExecutive,
   'view-gpu': ()=> renderEquipmentSection('view-gpu', APP.data.roles.gpu, 'GPU', 'bi-lightning-charge'),
   'view-pca': ()=> renderEquipmentSection('view-pca', APP.data.roles.pca, 'PCA', 'bi-snow'),
